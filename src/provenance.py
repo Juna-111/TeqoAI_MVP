@@ -3,6 +3,8 @@
 import hashlib
 import json
 
+PIPELINE_SCHEMA_VERSION = 3
+
 
 def sha256_file(path):
     digest = hashlib.sha256()
@@ -29,6 +31,12 @@ def validate_pipeline_provenance(report, dataset_profile, input_sha256, risk_run
     issues = []
     if not isinstance(report, dict):
         return ["Evaluation report is missing or is not a JSON object."]
+
+    if report.get("schema_version") != PIPELINE_SCHEMA_VERSION:
+        issues.append(
+            "Evaluation report uses an outdated or unsupported pipeline schema; "
+            "rerun the model pipeline."
+        )
 
     if report.get("dataset_profile") != dataset_profile:
         issues.append("Evaluation report belongs to a different dataset profile.")

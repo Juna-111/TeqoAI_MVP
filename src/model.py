@@ -12,7 +12,7 @@ each model's anomaly ranking lines up with known red-team events in a
 chronologically held-out test period.
 
 Usage:
-    python src/model.py
+    python -m src.model
 
 Input:
     data/processed/auth_events_clean.csv   (from src/data_prep.py)
@@ -22,6 +22,7 @@ Output:
     models/isolation_forest.pkl
     models/scaler.pkl
     models/autoencoder.pt                  (if PyTorch available)
+    models/autoencoder_scaler.pkl          (if PyTorch available)
 """
 
 import importlib.metadata
@@ -34,11 +35,20 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-from dataset_paths import CLEAN_FILE as INPUT_FILE
-from dataset_paths import DATASET, EVALUATION_FILE, MODELS_DIR, SCORED_FILE as OUTPUT_FILE
-from evaluation import evaluate_ranked_scores
-from provenance import create_pipeline_run_id, sha256_file
-from risk_engine import (
+from src.dataset_paths import CLEAN_FILE as INPUT_FILE
+from src.dataset_paths import (
+    DATASET,
+    EVALUATION_FILE,
+    MODELS_DIR,
+    SCORED_FILE as OUTPUT_FILE,
+)
+from src.evaluation import evaluate_ranked_scores
+from src.provenance import (
+    PIPELINE_SCHEMA_VERSION,
+    create_pipeline_run_id,
+    sha256_file,
+)
+from src.risk_engine import (
     BURST_THRESHOLD,
     HIGH_THRESHOLD,
     MEDIUM_THRESHOLD,
@@ -53,7 +63,8 @@ RANDOM_STATE = 42
 CONTAMINATION = 0.1
 AUTOENCODER_EPOCHS = 30
 WALK_FORWARD_FOLDS = 3
-PIPELINE_SCHEMA_VERSION = 2
+AUTOENCODER_BATCH_SIZE = 256
+AUTOENCODER_SCORE_BATCH_SIZE = 4096
 
 
 # ---- Feature engineering ---------------------------------------------------
@@ -86,19 +97,29 @@ def build_features(df, categories=None):
     """
     df = df.copy()
     df["time"] = df["time"].astype(int)
-    df = df.sort_values(["user", "time"]).reset_index(drop=True)
+    df = df.sort_values(
+        ["user", "time", "device", "target_device", "action", "result"],
+        kind="stable",
+    ).reset_index(drop=True)
 
     # Result / device novelty features
     df["is_failed"] = (df["result"].str.lower() != "success").astype(int)
-    df["is_new_target_device"] = (
-        ~df.duplicated(subset=["user", "target_device"], keep="first")
-    ).astype(int)
+    first_seen_time = df.groupby(
+        ["user", "target_device"], sort=False, dropna=False
+    )["time"].transform("min")
+    df["is_new_target_device"] = (df["time"] == first_seen_time).astype(int)
 
-    # Rolling login count per user over the past hour (inclusive of current event)
+    # Exclude simultaneous events from the history, then count the current
+    # event once. Peers at the same timestamp must not influence one another.
     df["elapsed_time"] = pd.to_timedelta(df["time"], unit="s")
     df = df.set_index("elapsed_time")
     df["rolling_count_1h"] = (
-        df.groupby("user")["time"].rolling("1h").count().reset_index(level=0, drop=True)
+        df.groupby("user", sort=False)["time"]
+        .rolling("1h", closed="left")
+        .count()
+        .reset_index(level=0, drop=True)
+        .fillna(0)
+        .add(1)
     )
     df = df.reset_index()
 
@@ -182,7 +203,7 @@ def chronological_validation_splits(df, training_mask, n_splits=WALK_FORWARD_FOL
 
 
 def evaluate_walk_forward(df, n_splits=WALK_FORWARD_FOLDS):
-    """Evaluate Isolation Forest on expanding windows inside the training period."""
+    """Compare every available ranking on identical expanding time windows."""
     outer_train_mask, _, _ = temporal_split(df)
     folds = chronological_validation_splits(df, outer_train_mask, n_splits)
     fold_results = []
@@ -204,13 +225,36 @@ def evaluate_walk_forward(df, n_splits=WALK_FORWARD_FOLDS):
             prepared_validation_mask, "is_malicious"
         ].to_numpy()
 
+        model_metrics = {
+            "first_seen_destination_baseline": evaluate_ranked_scores(
+                y_validation,
+                prepared_prefix.loc[
+                    prepared_validation_mask, "is_new_target_device"
+                ].to_numpy(dtype=float),
+                ALERT_BUDGETS,
+            )
+        }
+
         _, _, scores, _ = train_isolation_forest(
             X_train,
             X_validation,
             contamination=CONTAMINATION,
             random_state=RANDOM_STATE,
         )
-        metrics = evaluate_ranked_scores(y_validation, scores, ALERT_BUDGETS)
+        model_metrics["isolation_forest"] = evaluate_ranked_scores(
+            y_validation, scores, ALERT_BUDGETS
+        )
+        autoencoder, autoencoder_scores, _ = train_autoencoder(
+            X_train,
+            X_validation,
+            epochs=AUTOENCODER_EPOCHS,
+            random_state=RANDOM_STATE,
+        )
+        model_metrics["autoencoder"] = (
+            evaluate_ranked_scores(y_validation, autoencoder_scores, ALERT_BUDGETS)
+            if autoencoder_scores is not None
+            else {"status": "not_available"}
+        )
         fold_results.append(
             {
                 "fold": fold_number,
@@ -218,15 +262,24 @@ def evaluate_walk_forward(df, n_splits=WALK_FORWARD_FOLDS):
                 "validation_events": int(len(X_validation)),
                 "validation_start_elapsed_seconds": int(validation_events["time"].min()),
                 "validation_end_elapsed_seconds": int(validation_events["time"].max()),
-                "metrics": metrics,
+                "metrics": model_metrics["isolation_forest"],
+                "models": model_metrics,
             }
         )
 
     return {
-        "strategy": "expanding chronological windows within the final training period",
+        "strategy": (
+            "expanding chronological windows within the final training period; "
+            "all models use identical train and validation events"
+        ),
         "requested_folds": int(n_splits),
         "completed_folds": len(fold_results),
         "model": "isolation_forest",
+        "models": [
+            "first_seen_destination_baseline",
+            "isolation_forest",
+            "autoencoder",
+        ],
         "folds": fold_results,
     }
 
@@ -255,27 +308,10 @@ def train_isolation_forest(X_train, X_score=None, contamination=0.1, random_stat
 
 # ---- Autoencoder (optional second approach) --------------------------------
 
-def train_autoencoder(X_train, X_score=None, epochs=30, random_state=42):
-    """A simple autoencoder: trained to reconstruct normal-looking events.
-    High reconstruction error = anomaly. X_score is transformed with a
-    scaler fitted only on X_train. Returns None if PyTorch isn't installed,
-    so this step is optional rather than a hard dependency."""
-    try:
-        import torch
-        import torch.nn as nn
-    except Exception as e:
-        print(f"[info] PyTorch unavailable ({type(e).__name__}) - skipping "
-              f"autoencoder, Isolation Forest results are still complete on their own.")
-        return None, None
+def build_autoencoder(input_dim):
+    """Construct the small, deterministic dense reconstruction baseline."""
+    import torch.nn as nn
 
-    torch.manual_seed(random_state)
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train).astype("float32")
-    X_score_scaled = scaler.transform(X_train if X_score is None else X_score).astype("float32")
-    X_tensor = torch.tensor(X_train_scaled)
-    X_score_tensor = torch.tensor(X_score_scaled)
-
-    input_dim = X_tensor.shape[1]
     hidden_dim = max(4, input_dim // 2)
 
     class Autoencoder(nn.Module):
@@ -293,28 +329,131 @@ def train_autoencoder(X_train, X_score=None, epochs=30, random_state=42):
         def forward(self, x):
             return self.decoder(self.encoder(x))
 
-    model = Autoencoder()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    loss_fn = nn.MSELoss()
+    return Autoencoder(), hidden_dim
 
-    model.train()
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-        reconstructed = model(X_tensor)
-        loss = loss_fn(reconstructed, X_tensor)
-        loss.backward()
-        optimizer.step()
-        if (epoch + 1) % 10 == 0:
-            print(f"[info] autoencoder epoch {epoch+1}/{epochs} - loss: {loss.item():.4f}")
 
+def score_autoencoder(
+    model, scaler, X_score, batch_size=AUTOENCODER_SCORE_BATCH_SIZE
+):
+    """Calculate reconstruction errors in bounded batches."""
+    import torch
+
+    if (
+        not isinstance(batch_size, (int, np.integer))
+        or isinstance(batch_size, (bool, np.bool_))
+        or batch_size < 1
+    ):
+        raise ValueError("batch_size must be a positive integer.")
+    scores = []
     model.eval()
     with torch.no_grad():
-        reconstructed = model(X_score_tensor)
-        reconstruction_error = (
-            (X_score_tensor - reconstructed) ** 2
-        ).mean(dim=1).numpy()
+        for start in range(0, len(X_score), batch_size):
+            batch = X_score.iloc[start:start + batch_size]
+            scaled_batch = scaler.transform(batch).astype("float32")
+            tensor = torch.from_numpy(scaled_batch)
+            reconstructed = model(tensor)
+            scores.append(
+                (tensor - reconstructed).square().mean(dim=1).cpu().numpy()
+            )
+    return np.concatenate(scores) if scores else np.empty(0, dtype=float)
 
-    return model, reconstruction_error
+
+def save_autoencoder_artifacts(model, scaler, model_path, scaler_path):
+    import torch
+
+    input_dim = int(scaler.n_features_in_)
+    hidden_dim = max(4, input_dim // 2)
+    torch.save(
+        {"input_dim": input_dim, "hidden_dim": hidden_dim, "state_dict": model.state_dict()},
+        model_path,
+    )
+    joblib.dump(scaler, scaler_path)
+
+
+def load_autoencoder_artifacts(model_path, scaler_path):
+    import torch
+
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=True)
+    model, hidden_dim = build_autoencoder(int(checkpoint["input_dim"]))
+    if hidden_dim != int(checkpoint["hidden_dim"]):
+        raise ValueError("Autoencoder artifact architecture metadata is inconsistent.")
+    scaler = joblib.load(scaler_path)
+    if int(scaler.n_features_in_) != int(checkpoint["input_dim"]):
+        raise ValueError("Autoencoder scaler and model feature counts do not match.")
+    model.load_state_dict(checkpoint["state_dict"])
+    model.eval()
+    return model, scaler
+
+
+def train_autoencoder(
+    X_train,
+    X_score=None,
+    epochs=AUTOENCODER_EPOCHS,
+    random_state=42,
+    batch_size=AUTOENCODER_BATCH_SIZE,
+):
+    """A simple autoencoder: trained to reconstruct normal-looking events.
+    High reconstruction error = anomaly. X_score is transformed with a
+    scaler fitted only on X_train. Training and scoring use bounded batches.
+    Returns None if PyTorch isn't installed, so this step is optional rather
+    than a hard dependency."""
+    try:
+        import torch
+        import torch.nn as nn
+    except ImportError as error:
+        print(
+            f"[info] PyTorch unavailable ({type(error).__name__}) - skipping "
+            "autoencoder, Isolation Forest results are still complete on their own."
+        )
+        return None, None, None
+
+    if len(X_train) == 0:
+        raise ValueError("X_train must contain at least one event.")
+    if (
+        not isinstance(epochs, (int, np.integer))
+        or isinstance(epochs, (bool, np.bool_))
+        or not isinstance(batch_size, (int, np.integer))
+        or isinstance(batch_size, (bool, np.bool_))
+        or epochs < 1
+        or batch_size < 1
+    ):
+        raise ValueError("epochs and batch_size must be positive integers.")
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train).astype("float32")
+    X_tensor = torch.tensor(X_train_scaled)
+    generator = torch.Generator(device="cpu").manual_seed(random_state)
+
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(random_state)
+        model, _ = build_autoencoder(X_tensor.shape[1])
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        loss_fn = nn.MSELoss()
+
+        for epoch in range(epochs):
+            model.train()
+            permutation = torch.randperm(len(X_tensor), generator=generator)
+            epoch_loss = 0.0
+            for start in range(0, len(X_tensor), batch_size):
+                indices = permutation[start:start + batch_size]
+                batch = X_tensor[indices]
+                optimizer.zero_grad()
+                reconstructed = model(batch)
+                loss = loss_fn(reconstructed, batch)
+                loss.backward()
+                optimizer.step()
+                epoch_loss += loss.item() * len(batch)
+            epoch_loss /= len(X_tensor)
+            if (epoch + 1) % 10 == 0:
+                print(
+                    f"[info] autoencoder epoch {epoch+1}/{epochs} "
+                    f"- loss: {epoch_loss:.4f}"
+                )
+
+    scores = score_autoencoder(
+        model, scaler, X_train if X_score is None else X_score
+    )
+    return model, scores, scaler
 
 
 # ---- Evaluation --------------------------------------------------------------
@@ -345,6 +484,10 @@ def write_evaluation_report(
         package: importlib.metadata.version(package)
         for package in ("numpy", "pandas", "scikit-learn")
     }
+    try:
+        package_versions["torch"] = importlib.metadata.version("torch")
+    except importlib.metadata.PackageNotFoundError:
+        package_versions["torch"] = None
     run_config = {
         "pipeline_schema_version": PIPELINE_SCHEMA_VERSION,
         "python": platform.python_version(),
@@ -352,6 +495,8 @@ def write_evaluation_report(
         "random_state": RANDOM_STATE,
         "isolation_forest_contamination": CONTAMINATION,
         "autoencoder_epochs": AUTOENCODER_EPOCHS,
+        "autoencoder_batch_size": AUTOENCODER_BATCH_SIZE,
+        "autoencoder_score_batch_size": AUTOENCODER_SCORE_BATCH_SIZE,
         "test_fraction": TEST_FRACTION,
         "walk_forward_folds": WALK_FORWARD_FOLDS,
         "risk_engine": {
@@ -392,6 +537,11 @@ def write_evaluation_report(
             "feature_count": int(feature_count),
             "models": model_metrics,
         },
+        "walk_forward_model_comparison": (
+            "The first-seen baseline, Isolation Forest, and optional autoencoder "
+            "are evaluated on the same chronological folds. Fold metrics are "
+            "reported per model."
+        ),
         "walk_forward_validation": walk_forward_metrics,
         "score_semantics": (
             "Anomaly rankings and risk scores are prioritization signals, not "
@@ -403,6 +553,8 @@ def write_evaluation_report(
         "limitations": [
             "Metrics measure agreement with known labels, not proof of malicious activity.",
             "A test window with zero known positives is not suitable for detection-quality claims.",
+            "Unsupervised models are trained without labels and may include malicious events in their training data.",
+            "The autoencoder uses fixed-epoch reconstruction ranking; its scores are not calibrated probabilities.",
         ],
     }
     os.makedirs(os.path.dirname(EVALUATION_FILE), exist_ok=True)
@@ -468,7 +620,7 @@ def main():
     )
 
     print("[info] training autoencoder (optional second model)...")
-    ae_model, ae_scores = train_autoencoder(
+    ae_model, ae_scores, ae_scaler = train_autoencoder(
         X_train, X_all, epochs=AUTOENCODER_EPOCHS, random_state=RANDOM_STATE
     )
     if ae_scores is not None:
@@ -521,8 +673,12 @@ def main():
     joblib.dump(if_scaler, os.path.join(MODELS_DIR, "scaler.pkl"))
     if ae_model is not None:
         try:
-            import torch
-            torch.save(ae_model.state_dict(), os.path.join(MODELS_DIR, "autoencoder.pt"))
+            save_autoencoder_artifacts(
+                ae_model,
+                ae_scaler,
+                os.path.join(MODELS_DIR, "autoencoder.pt"),
+                os.path.join(MODELS_DIR, "autoencoder_scaler.pkl"),
+            )
         except Exception as e:
             print(f"[warn] could not save autoencoder weights ({type(e).__name__}) - "
                   f"Isolation Forest artifacts were saved successfully regardless.")

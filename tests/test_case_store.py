@@ -1,13 +1,8 @@
 import os
-import sys
 import tempfile
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-import case_store  # noqa: E402
+from src import case_store
 
 
 class CaseStoreTests(unittest.TestCase):

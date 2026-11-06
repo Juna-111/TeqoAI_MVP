@@ -19,6 +19,17 @@ class EvaluateRankedScoresTests(unittest.TestCase):
         self.assertEqual(result["alert_budgets"]["2"]["known_positive_hits"], 1)
         self.assertAlmostEqual(result["alert_budgets"]["2"]["precision"], 0.5)
         self.assertAlmostEqual(result["alert_budgets"]["2"]["recall"], 0.5)
+        self.assertAlmostEqual(result["alert_budgets"]["2"]["f1_score"], 0.5)
+        self.assertAlmostEqual(result["alert_budgets"]["2"]["false_positive_rate"], 0.5)
+        self.assertEqual(
+            result["alert_budgets"]["2"]["confusion_matrix"],
+            {
+                "true_positive": 1,
+                "false_positive": 1,
+                "false_negative": 1,
+                "true_negative": 1,
+            },
+        )
         self.assertAlmostEqual(
             result["alert_budgets"]["2"]["random_baseline_expected_precision"], 0.5
         )
@@ -29,7 +40,11 @@ class EvaluateRankedScoresTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_evaluable_no_test_positives")
         self.assertIsNone(result["average_precision"])
         self.assertIsNone(result["roc_auc"])
-        self.assertEqual(result["alert_budgets"], {})
+        self.assertIsNone(result["alert_budgets"]["30"]["recall"])
+        self.assertIsNone(result["alert_budgets"]["30"]["f1_score"])
+        self.assertAlmostEqual(
+            result["alert_budgets"]["30"]["false_positive_rate"], 1
+        )
 
     def test_empty_test_period_is_explicitly_not_evaluable(self):
         result = evaluate_ranked_scores([], [])

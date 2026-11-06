@@ -5,31 +5,28 @@ import html
 import json
 import os
 import sqlite3
-import sys
 
 import networkx as nx
 import pandas as pd
 import streamlit as st
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-SRC_DIR = os.path.join(BASE_DIR, "src")
-sys.path.insert(0, SRC_DIR)
 
-from digital_twin import (  # noqa: E402
+from src.digital_twin import (
     build_explainer,
     build_graph,
     explain_event,
     get_attack_paths,
     load_model_artifacts,
 )
-from dataset_paths import (  # noqa: E402
+from src.dataset_paths import (
     CLEAN_FILE,
     DATASET,
     EVALUATION_FILE,
     RISK_FILE,
 )
-from provenance import sha256_file, validate_pipeline_provenance  # noqa: E402
-from case_store import (  # noqa: E402
+from src.provenance import sha256_file, validate_pipeline_provenance
+from src.case_store import (
     CASE_STATUSES,
     CHECKLIST_ITEMS,
     export_cases,
@@ -37,7 +34,7 @@ from case_store import (  # noqa: E402
     get_cases,
     save_case,
 )
-from model import align_features, build_features  # noqa: E402
+from src.model import align_features, build_features
 
 BRAND = "#38BDF8"
 LOGO_FILE = os.path.join(BASE_DIR, "assets", "teqoai-logo.png")

@@ -7,7 +7,7 @@ takes a manageable slice, maps it into TeqoAI's common event schema
 red-team labels for evaluation purposes only (not for training).
 
 Usage:
-    python src/data_prep.py
+    python -m src.data_prep
 
 Input (place in data/raw/):
     auth.txt.gz      https://csr.lanl.gov/data/cyber1/
@@ -21,7 +21,7 @@ import gzip
 import csv
 import os
 
-from dataset_paths import CLEAN_FILE, DATASET, RAW_DIR
+from src.dataset_paths import CLEAN_FILE, DATASET, RAW_DIR
 
 # ---- Config ----------------------------------------------------------
 AUTH_FILE = os.path.join(RAW_DIR, "auth.txt.gz")

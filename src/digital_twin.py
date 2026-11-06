@@ -4,8 +4,8 @@ TeqoAI — Step 4: Cyber Digital Twin, Attack-Path Analysis & Explainability
 This module covers the rest of the MVP's analytical core in one place:
 
   1. Build a small Cyber Digital Twin: a directed graph of assets (users,
-     laptops, servers, applications, databases) from the observed auth
-     events, with each asset tagged by type and criticality.
+     laptops, servers, applications, databases) from successful auth events,
+     with each asset tagged by type and criticality.
   2. Attack-path analysis: given a starting point (e.g. a compromised
      user's laptop), find which assets are reachable and how risky each
      path is, based on asset criticality.
@@ -13,7 +13,7 @@ This module covers the rest of the MVP's analytical core in one place:
      specific event got the anomaly score it did.
 
 Usage (as a demo):
-    python src/digital_twin.py
+    python -m src.digital_twin
 
 Input:
     data/processed/auth_events_clean.csv    (from src/data_prep.py)
@@ -25,17 +25,15 @@ explain_event() directly from this file rather than duplicating logic.
 """
 
 import os
-import sys
 import joblib
 import pandas as pd
 import networkx as nx
 
-from dataset_paths import CLEAN_FILE, MODELS_DIR, RISK_FILE
+from src.dataset_paths import CLEAN_FILE, MODELS_DIR, RISK_FILE
 
 # Reuse the exact same feature engineering used for training, so SHAP
 # explanations are computed on identical features to the live model.
-sys.path.insert(0, os.path.dirname(__file__))
-from model import align_features, build_features  # noqa: E402
+from src.model import align_features, build_features
 
 # Asset criticality — used to weight how "bad" a reachable asset is.
 # Higher = more valuable / sensitive if reached by a compromised account.
@@ -48,7 +46,7 @@ CRITICALITY = {
 }
 
 
-def classify_asset(node_name):
+def classify_asset(node_name: str) -> str:
     """Infer an asset's type from its naming convention in the data."""
     if node_name.startswith("DB"):
         return "database"
@@ -63,16 +61,27 @@ def classify_asset(node_name):
 
 # ---- 1) Build the Cyber Digital Twin ---------------------------------------
 
-def build_graph(df):
-    """Build a directed graph from observed auth events: an edge from
-    `device` to `target_device` for every hop actually seen in the data,
-    weighted by how often that hop occurs. This reflects real relationships
-    rather than an assumed topology, so it works the same way on real data
-    later, not just this synthetic set."""
+def build_graph(df: pd.DataFrame) -> nx.DiGraph:
+    """Build a graph of device relationships confirmed by successful auth events.
+
+    Failed attempts are not evidence that a source reached a destination and
+    must not contribute graph edges or attack paths.
+    """
+    required_columns = {"device", "target_device", "result"}
+    missing_columns = required_columns.difference(df.columns)
+    if missing_columns:
+        raise ValueError(
+            "Authentication outcomes are required to build observed paths; "
+            f"missing columns: {', '.join(sorted(missing_columns))}."
+        )
+
     G = nx.DiGraph()
 
-    for _, row in df.iterrows():
-        src, dst = row["device"], row["target_device"]
+    successful_events = df.loc[
+        df["result"].astype("string").str.strip().str.casefold().eq("success").fillna(False)
+    ]
+    for row in successful_events.itertuples(index=False):
+        src, dst = row.device, row.target_device
         for node in (src, dst):
             if node not in G:
                 asset_type = classify_asset(node)
@@ -87,7 +96,9 @@ def build_graph(df):
 
 # ---- 2) Attack-path analysis ------------------------------------------------
 
-def get_attack_paths(G, start_node, max_hops=4):
+def get_attack_paths(
+    G: nx.DiGraph, start_node: str, max_hops: int = 4
+) -> list[dict[str, object]]:
     """From a starting asset (typically a compromised user's laptop),
     find every asset reachable within max_hops, the path to reach it, and
     a risk score for that path based on the criticality of assets touched

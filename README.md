@@ -15,13 +15,14 @@ teqoai/
 │   ├── raw/                  ← synthetic inputs; LANL inputs go in raw/lanl/
 │   └── processed/            ← dataset-profile outputs and evaluation report
 ├── src/
+│   ├── __init__.py            ← importable pipeline package
 │   ├── generate_synthetic_data.py
 │   ├── data_prep.py           ← parse authentication logs into a common schema
 │   ├── model.py               ← Isolation Forest and optional autoencoder
 │   ├── evaluation.py          ← held-out ranking metrics and label coverage
 │   ├── provenance.py          ← dataset/run consistency checks
 │   ├── risk_engine.py         ← transparent rule-assisted risk score
-│   ├── digital_twin.py        ← observed relationship graph and paths
+│   ├── digital_twin.py        ← successful-auth relationship graph and paths
 │   ├── dataset_paths.py       ← synthetic/LANL output isolation
 │   └── case_store.py          ← local analyst case records
 ├── dashboard/
@@ -64,13 +65,14 @@ The script uses the project's `venv` when available (otherwise `python` on
 your previous `TEQO_DATASET` setting when it exits. It regenerates the synthetic
 inputs and overwrites the synthetic processed outputs and model artifacts.
 
-The equivalent individual commands are:
+Run module commands from the repository root. The `src` package provides a
+single import path for the pipeline, dashboard, and tests:
 
 ```bash
-python src/generate_synthetic_data.py
-python src/data_prep.py
-python src/model.py
-python src/risk_engine.py
+python -m src.generate_synthetic_data
+python -m src.data_prep
+python -m src.model
+python -m src.risk_engine
 ```
 
 This generates `data/raw/auth.txt.gz` and `data/raw/redteam.txt.gz` using the LANL column format, but the records are synthetic—not LANL data. It includes normal logins for 60 users, benign-but-unusual activity, and labeled lateral-movement chains. Chains are deliberately placed in both the early training window and later holdout window, so the evaluation workflow can be demonstrated locally. Results validate the pipeline only, not detection quality on LANL or real networks. The generator is seeded (`random.seed(42)`) for repeatable output.
@@ -92,10 +94,10 @@ In PowerShell, select the LANL pipeline before running each step:
 ```powershell
 $env:TEQO_DATASET = "lanl"
 $env:TEQO_MAX_AUTH_ROWS = "20000000" # optional; default is 2000000
-python src/data_prep.py
-python src/model.py
-python src/risk_engine.py
-streamlit run dashboard/app.py
+python -m src.data_prep
+python -m src.model
+python -m src.risk_engine
+python -m streamlit run dashboard/app.py
 ```
 
 The clean, scored, and risk files and model artifacts will be stored under `data/processed/lanl/` and `models/lanl/`. Keep `$env:TEQO_DATASET` set to `lanl` when launching the dashboard to view those outputs. Unset it (or set it to `synthetic`) to use the synthetic sample instead.
@@ -160,7 +162,7 @@ it is not required to describe the current output honestly as a synthetic-data M
 ## Step 2: Run the data prep script
 
 ```bash
-python src/data_prep.py
+python -m src.data_prep
 ```
 
 This produces `data/processed/auth_events_clean.csv` in the common schema:
@@ -177,26 +179,42 @@ Where:
 - **result** — `Success` or `Failure`
 - **is_malicious** — `1` if this event matches a labeled red-team event, else `0` (your ground truth for evaluation — the model itself must NOT be trained on this column, since it's meant to be unsupervised/semi-supervised)
 
+Feature construction orders events deterministically. For an account, rolling
+one-hour activity uses only strictly earlier timestamps plus the current event;
+events tied at the same timestamp do not increase one another's counts. All
+events tied for the first observed account/destination timestamp receive the
+first-seen feature. Authentication labels are never model inputs.
+
 ## Step 3: Train and evaluate
 
 ```bash
-python src/model.py
+python -m src.model
 ```
 
 The model learns action categories from training events only. It trains on the
 earliest 70% of distinct event times and reserves the latest 30% as a final
-chronological holdout. Before that final holdout, the Isolation Forest also
-runs expanding-window validation folds strictly within the training period.
-A first-seen-destination heuristic is included as a simple baseline alongside
-Isolation Forest and the optional autoencoder.
+chronological holdout. Before that final holdout, the first-seen-destination
+baseline, Isolation Forest, and optional autoencoder are compared on the same
+expanding chronological validation folds. Preprocessing scalers and action
+categories are learned from the applicable training period only.
+
+The autoencoder is a small dense reconstruction baseline, not a claim that deep
+learning is superior. It uses a training-only standard scaler, fixed-epoch
+mini-batch mean-squared-error training, seeded initialization/shuffling, and
+bounded-batch inference. Its checkpoint and scaler are saved separately for
+reproducible inference. Its reconstruction scores are rankings; there is no
+calibrated compromise probability or selected decision threshold.
 
 The pipeline writes `data/processed/evaluation_report.json` and a shared
 `pipeline_run_id` into the scored and risk files. The dashboard verifies the
 input SHA-256, dataset profile, and run identifier before presenting metrics.
 The report includes split/label coverage, package versions, average precision,
-ROC-AUC when both classes are present, and precision/recall at fixed top-30 and
-top-100 alert budgets. Windows with no known red-team labels are marked not
-evaluable rather than reported as zero.
+ROC-AUC when both classes are present, and precision, recall, F1, confusion
+counts, and false-positive rate at fixed top-30 and top-100 alert budgets.
+Windows without known positives are marked not evaluable for detection quality;
+their false-alert counts/rates are still reported when possible.
+After a feature or evaluation schema change, rerun the model pipeline before
+using the previously generated scores, evaluation report, or model artifacts.
 
 The dashboard's **Results & Method** page presents final holdout and
 walk-forward results, labels small validation samples, and identifies stale
@@ -220,6 +238,9 @@ The dashboard binds to `127.0.0.1` by default. To run only the focused checks:
 ```powershell
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+The pipeline modules are run with `python -m src.<module>` from the repository
+root. This keeps imports consistent across scripts, dashboard code, and tests.
 
 ## Dashboard navigation
 
@@ -245,8 +266,13 @@ Run the full pipeline using the commands above, then launch the welcome page
 and analyst workspace:
 
 ```bash
-streamlit run dashboard/app.py
+python -m streamlit run dashboard/app.py
 ```
+
+The observed-path graph is built only from successful authentication events.
+Failed attempts are not treated as confirmed device relationships, and even a
+successful authentication is not proof of general network reachability or
+authorization.
 
 Case status, analyst assignment, notes, checklist progress, and a change audit trail are
 stored unencrypted locally in `data/state/` using SQLite. Do not enter sensitive

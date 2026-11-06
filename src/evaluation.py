@@ -52,19 +52,36 @@ def evaluate_ranked_scores(labels, scores, alert_budgets=(30, 100)):
         "alert_budgets": {},
     }
 
-    if not positives:
-        return result
-
     order = np.argsort(-y_score, kind="stable")
     prevalence = positives / len(y_true)
     for budget in alert_budgets:
         selected_count = min(int(budget), len(y_true))
         hits = int(y_true[order[:selected_count]].sum())
+        false_positives = selected_count - hits
+        false_negatives = positives - hits
+        true_negatives = unmatched - false_positives
+        precision = hits / selected_count
+        recall = hits / positives if positives else None
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if recall is not None and precision + recall
+            else 0.0 if recall is not None else None
+        )
         result["alert_budgets"][str(budget)] = {
             "selected_events": selected_count,
             "known_positive_hits": hits,
-            "precision": hits / selected_count,
-            "recall": hits / positives,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1,
+            "false_positive_rate": (
+                false_positives / unmatched if unmatched else None
+            ),
+            "confusion_matrix": {
+                "true_positive": hits,
+                "false_positive": false_positives,
+                "false_negative": false_negatives,
+                "true_negative": true_negatives,
+            },
             "random_baseline_expected_precision": prevalence,
         }
     return result

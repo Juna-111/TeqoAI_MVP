@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from dataset_paths import BASE_DIR, DATASET
+from src.dataset_paths import BASE_DIR, DATASET
 
 CASE_DB = os.path.join(BASE_DIR, "data", "state", f"{DATASET}_cases.sqlite3")
 CASE_STATUSES = ("New", "Investigating", "Escalated", "Resolved", "Benign")

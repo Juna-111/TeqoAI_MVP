@@ -13,7 +13,7 @@ trust a black box. Phase Two replaces this with a proper multi-model
 risk engine.
 
 Usage:
-    python src/risk_engine.py
+    python -m src.risk_engine
 
 Input:
     data/processed/auth_events_scored.csv   (from src/model.py)
@@ -25,8 +25,8 @@ Output:
 import os
 import pandas as pd
 
-from dataset_paths import RISK_FILE as OUTPUT_FILE
-from dataset_paths import SCORED_FILE as INPUT_FILE
+from src.dataset_paths import RISK_FILE as OUTPUT_FILE
+from src.dataset_paths import SCORED_FILE as INPUT_FILE
 
 # Assets considered high-value / sensitive. Reaching one of these is treated
 # as more serious than a routine workstation login. Adjust this list to

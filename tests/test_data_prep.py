@@ -1,16 +1,12 @@
 import csv
 import gzip
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from data_prep import clean_and_map  # noqa: E402
+from src.data_prep import clean_and_map
 
 
 class DataPreparationTests(unittest.TestCase):

@@ -5,6 +5,7 @@ from src.provenance import create_pipeline_run_id, validate_pipeline_provenance
 
 def valid_report():
     return {
+        "schema_version": 3,
         "dataset_profile": "synthetic",
         "run_id": "run-123",
         "input": {"sha256": "input-hash"},
@@ -73,6 +74,18 @@ class PipelineProvenanceTests(unittest.TestCase):
 
         self.assertTrue(any("run identifier" in issue for issue in issues))
         self.assertTrue(any("Risk scores" in issue for issue in issues))
+
+    def test_outdated_pipeline_schema_requires_rerunning_model_pipeline(self):
+        report = valid_report()
+        report["schema_version"] = 2
+
+        issues = validate_pipeline_provenance(
+            report, "synthetic", "input-hash", ["run-123"]
+        )
+
+        self.assertTrue(
+            any("outdated or unsupported pipeline schema" in issue for issue in issues)
+        )
 
 
 if __name__ == "__main__":

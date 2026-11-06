@@ -15,6 +15,7 @@ if (Test-Path -LiteralPath $virtualEnvPython) {
 
 $previousDataset = $env:TEQO_DATASET
 $env:TEQO_DATASET = "synthetic"
+Push-Location $root
 
 try {
     Write-Host "Using Python: $python"
@@ -22,15 +23,15 @@ try {
     Write-Host "This regenerates synthetic inputs and processed outputs; it does not use LANL data."
 
     $steps = @(
-        "src\generate_synthetic_data.py",
-        "src\data_prep.py",
-        "src\model.py",
-        "src\risk_engine.py"
+        "src.generate_synthetic_data",
+        "src.data_prep",
+        "src.model",
+        "src.risk_engine"
     )
 
     foreach ($step in $steps) {
         Write-Host "`n===== $step ====="
-        & $python (Join-Path $root $step)
+        & $python -m $step
         if ($LASTEXITCODE -ne 0) {
             throw "$step failed with exit code $LASTEXITCODE."
         }
@@ -48,7 +49,7 @@ try {
             throw "Streamlit exited with code $LASTEXITCODE."
         }
     } else {
-        Write-Host "To launch the dashboard: .\venv\Scripts\python.exe -m streamlit run dashboard\app.py"
+        Write-Host "To launch the dashboard from the project root: .\venv\Scripts\python.exe -m streamlit run dashboard\app.py"
     }
 } finally {
     if ($null -eq $previousDataset) {
@@ -56,4 +57,5 @@ try {
     } else {
         $env:TEQO_DATASET = $previousDataset
     }
+    Pop-Location
 }

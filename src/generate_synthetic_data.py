@@ -14,7 +14,7 @@ with matching ground-truth labels.
 Swap this out for the real LANL files later — data_prep.py doesn't change.
 
 Usage:
-    python src/generate_synthetic_data.py
+    python -m src.generate_synthetic_data
 
 Output:
     data/raw/auth.txt.gz
@@ -233,5 +233,5 @@ if __name__ == "__main__":
     print(f"  - {len(benign_events):,} benign-but-unusual events (not labeled malicious)")
     print(f"  - {len(redteam_auth_events):,} malicious events across "
           f"{NUM_COMPROMISED_USERS} compromised users")
-    print("\nNext: run `python src/data_prep.py` to clean and map this into "
+    print("\nNext: run `python -m src.data_prep` to clean and map this into "
           "the common schema.")
