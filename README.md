@@ -25,7 +25,7 @@ teqoai/
 │   ├── dataset_paths.py       ← synthetic/LANL output isolation
 │   └── case_store.py          ← local analyst case records
 ├── dashboard/
-│   └── app.py                 ← Streamlit analyst dashboard
+│   └── app.py                 ← welcome page and Streamlit analyst workspace
 ├── tests/                     ← data, model, graph, case, and provenance checks
 ├── run_demo.ps1               ← reproducible local graduation demo
 ├── requirements.txt
@@ -198,7 +198,7 @@ ROC-AUC when both classes are present, and precision/recall at fixed top-30 and
 top-100 alert budgets. Windows with no known red-team labels are marked not
 evaluable rather than reported as zero.
 
-The dashboard's **Data & Evaluation** page presents final holdout and
+The dashboard's **Results & Method** page presents final holdout and
 walk-forward results, labels small validation samples, and identifies stale
 or mismatched pipeline artifacts. Risk scores are prioritization signals, not
 calibrated probabilities; holdout metrics evaluate raw model rankings rather
@@ -221,17 +221,28 @@ The dashboard binds to `127.0.0.1` by default. To run only the focused checks:
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
+## Dashboard navigation
+
+The app opens on a project welcome page with creator information, project
+overview, and links into the analyst workspace. The top navigation separates
+the **Home**, **Overview**, **Investigate**, **Observed Paths**, and
+**Results & Method** pages. Home can be viewed without generated event or model
+artifacts; the analyst workspace requires the local pipeline outputs described
+above.
+
 ## Current implementation status
 
 - [x] `src/data_prep.py` — map authentication events into the common schema
 - [x] `src/model.py` — Isolation Forest and optional autoencoder scoring with chronological evaluation reporting
 - [x] `src/risk_engine.py` — transparent Low/Medium/High risk scoring
 - [x] `src/digital_twin.py` — observed-relationship graph, path analysis, and SHAP helpers
-- [x] `dashboard/app.py` — branded multi-page analyst dashboard with search,
-  filters, investigation, evaluation evidence, and human-controlled triage
+- [x] `dashboard/app.py` — branded welcome page and top navigation, plus an
+  analyst dashboard with search, filters, investigation, evaluation evidence,
+  and human-controlled triage
 - [ ] Validate model quality on downloaded LANL data with a held-out time period (future extension; not claimed by this synthetic MVP)
 
-Run the full pipeline using the commands above, then launch the analyst dashboard:
+Run the full pipeline using the commands above, then launch the welcome page
+and analyst workspace:
 
 ```bash
 streamlit run dashboard/app.py

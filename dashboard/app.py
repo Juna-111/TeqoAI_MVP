@@ -169,6 +169,126 @@ st.markdown(
         letter-spacing: .06em;
         white-space: nowrap;
     }
+    .teqo-welcome-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 34px;
+        border: 1px solid rgba(56, 189, 248, .24);
+        border-radius: 18px;
+        background:
+            radial-gradient(ellipse at 86% 12%, rgba(56,189,248,.18), transparent 38%),
+            linear-gradient(125deg, #0E1B2A 5%, #0A1726 70%);
+        box-shadow: 0 22px 60px rgba(0,0,0,.22);
+    }
+    .teqo-welcome-hero h1 {
+        margin: 8px 0 12px;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        line-height: 1.08;
+        letter-spacing: -.04em;
+    }
+    .teqo-welcome-hero p {
+        max-width: 720px;
+        color: #B5C5D2;
+        font-size: 1.04rem;
+        line-height: 1.7;
+    }
+    .teqo-section-kicker {
+        color: var(--teqo-accent);
+        font-size: .73rem;
+        font-weight: 750;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+    }
+    .teqo-feature-card {
+        min-height: 168px;
+        padding: 20px;
+        border: 1px solid var(--teqo-border);
+        border-radius: 12px;
+        background: linear-gradient(145deg, #0E1B2A, #0A1726);
+    }
+    .teqo-feature-card h3 { margin: 0 0 8px; font-size: 1rem; }
+    .teqo-feature-card p {
+        margin: 0;
+        color: #A9BBC9;
+        font-size: .88rem;
+        line-height: 1.6;
+    }
+    .teqo-project-note {
+        border-left: 3px solid var(--teqo-accent);
+        border-radius: 8px;
+        padding: 14px 18px;
+        background: rgba(56,189,248,.07);
+        color: #C4D5E1;
+    }
+    .teqo-contact-links {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .teqo-contact-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 62px;
+        padding: 10px 13px;
+        border: 1px solid var(--teqo-border);
+        border-radius: 11px;
+        background: linear-gradient(120deg, rgba(14,27,42,.98), rgba(10,23,38,.96));
+        color: #E5F0F7 !important;
+        text-decoration: none !important;
+        transition: border-color .18s ease, transform .18s ease, background .18s ease;
+    }
+    .teqo-contact-link:hover {
+        border-color: rgba(56,189,248,.65);
+        background: rgba(56,189,248,.08);
+        transform: translateY(-1px);
+    }
+    .teqo-contact-icon {
+        display: grid;
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(56,189,248,.12);
+        color: #38BDF8;
+    }
+    .teqo-contact-icon.telegram {
+        background: #229ED9;
+        color: #FFFFFF;
+    }
+    .teqo-contact-icon.github {
+        background: #F0F6FC;
+        color: #161B22;
+    }
+    .teqo-contact-icon svg { width: 21px; height: 21px; display: block; }
+    .teqo-contact-copy { min-width: 0; flex: 1; }
+    .teqo-contact-copy strong { display: block; font-size: .88rem; }
+    .teqo-contact-copy span {
+        display: block;
+        overflow: hidden;
+        color: #94A3B8;
+        font-size: .75rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .teqo-contact-arrow { color: #7F94A6; font-size: 1rem; }
+    [data-testid="stMain"] [data-testid="stPageLink-NavLink"] {
+        display: flex;
+        justify-content: center;
+        min-height: 42px;
+        padding: 8px 12px;
+        border: 1px solid rgba(56, 189, 248, .32);
+        border-radius: 9px;
+        background: rgba(56, 189, 248, .08);
+        color: #DDF5FF;
+        text-decoration: none;
+        transition: background-color .18s ease, border-color .18s ease;
+    }
+    [data-testid="stMain"] [data-testid="stPageLink-NavLink"]:hover {
+        border-color: var(--teqo-accent);
+        background: rgba(56, 189, 248, .16);
+    }
     .teqo-graph-shell {
         border: 1px solid rgba(56, 189, 248, .2);
         border-radius: 14px;
@@ -951,67 +1071,6 @@ def render_data_quality(clean, data, report, provenance_issues):
     st.bar_chart(distribution, color=BRAND)
 
 
-if not os.path.exists(CLEAN_FILE) or not os.path.exists(RISK_FILE):
-    st.error("TeqoAI results are not ready. Please run the local demo setup first.")
-    st.stop()
-
-clean_file_stat = os.stat(CLEAN_FILE)
-risk_file_stat = os.stat(RISK_FILE)
-try:
-    clean_events, risk_events = load_data(
-        clean_file_stat.st_mtime_ns,
-        clean_file_stat.st_size,
-        risk_file_stat.st_mtime_ns,
-        risk_file_stat.st_size,
-    )
-except (OSError, pd.errors.ParserError, ValueError):
-    st.error("TeqoAI could not load the activity results. Please rerun the local demo.")
-    st.stop()
-
-required_risk_columns = {
-    "risk_level", "risk_score", "time", "user", "device",
-    "target_device", "result", "action",
-}
-missing_risk_columns = sorted(required_risk_columns.difference(risk_events.columns))
-if missing_risk_columns:
-    st.error("The activity results are incomplete. Please rerun the local demo.")
-    st.stop()
-
-try:
-    case_records = get_cases(DATASET)
-except sqlite3.Error:
-    st.error("The case workspace is unavailable. Restart the local TeqoAI demo.")
-    st.stop()
-
-report = None
-provenance_issues = []
-if os.path.exists(EVALUATION_FILE):
-    try:
-        with open(EVALUATION_FILE, encoding="utf-8") as report_file:
-            report = json.load(report_file)
-    except (OSError, json.JSONDecodeError) as error:
-        provenance_issues.append(f"Could not read the evaluation report: {error}")
-
-if report is not None and not isinstance(report, dict):
-    provenance_issues.append("Evaluation report is not a JSON object.")
-    report = None
-
-if report is not None:
-    clean_sha256 = cached_file_sha256(
-        CLEAN_FILE, clean_file_stat.st_mtime_ns, clean_file_stat.st_size
-    )
-    run_ids = (
-        risk_events["pipeline_run_id"].tolist()
-        if "pipeline_run_id" in risk_events else []
-    )
-    provenance_issues.extend(
-        validate_pipeline_provenance(report, DATASET, clean_sha256, run_ids)
-    )
-    if len(clean_events) != len(risk_events):
-        provenance_issues.append(
-            "Clean and risk-scored files have different event counts."
-        )
-
 PAGE_TITLES = {
     "Overview": "Shift overview",
     "Investigate": "Alert investigation",
@@ -1019,66 +1078,375 @@ PAGE_TITLES = {
     "Results & Method": "Results and approach",
 }
 
-with st.sidebar:
-    filtered_events = apply_filters(risk_events, case_records)
-    with st.expander("Privacy note"):
-        st.caption(
-            "Case notes are stored unencrypted on this computer. Do not enter "
-            "sensitive production information."
+
+def render_homepage():
+    st.markdown(
+        "<style>[data-testid='stSidebar'],"
+        "[data-testid='stSidebarCollapsedControl']{display:none!important}</style>",
+        unsafe_allow_html=True,
+    )
+
+    hero, summary = st.columns([1.55, 1], gap="large", vertical_alignment="center")
+    with hero:
+        st.markdown('<div class="teqo-section-kicker">INSA SUMMER CAMP · GRADUATION PROJECT</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="teqo-welcome-hero">'
+            '<h1>Welcome to <span style="color:#38BDF8">TeqoAI</span></h1>'
+            '<p>Making authentication security easier to understand, investigate, '
+            'and improve with explainable artificial intelligence.</p>'
+            '<p>TeqoAI explores how unusual login behavior can be prioritized for '
+            'human review—connecting anomaly signals with clear evidence and '
+            'observed device relationships.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        cta_workspace, cta_results = st.columns(2)
+        cta_workspace.page_link(
+            overview_page,
+            label="Explore the dashboard",
+            icon=":material/arrow_forward:",
+            width="stretch",
+        )
+        cta_results.page_link(
+            results_page,
+            label="See project results",
+            icon=":material/analytics:",
+            width="stretch",
         )
 
-brand_mark, brand_title = st.columns([0.75, 5])
+    with summary:
+        st.markdown(
+            '<div class="teqo-home-panel">'
+            '<div class="teqo-section-kicker">THE PROJECT</div>'
+            '<h3 style="margin-top:10px">Explainable authentication triage</h3>'
+            '<p style="color:#A9BBC9;line-height:1.65">A research prototype that '
+            'ranks unusual authentication activity, explains contributing signals, '
+            'and supports analyst-led investigation.</p>'
+            '<div class="teqo-queue-stat"><span>Focus</span><strong>Authentication activity</strong></div>'
+            '<div class="teqo-queue-stat"><span>Approach</span><strong>Unsupervised anomaly ranking</strong></div>'
+            '<div class="teqo-queue-stat"><span>Decision-maker</span><strong>Human analyst</strong></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("")
+    st.markdown('<div class="teqo-section-kicker">WHAT YOU CAN EXPLORE</div>', unsafe_allow_html=True)
+    feature_columns = st.columns(3, gap="medium")
+    features = [
+        (
+            "01 · Detect",
+            "Prioritize unusual activity",
+            "Anomaly rankings and a simple behavior baseline help bring potentially unusual authentication events into focus.",
+        ),
+        (
+            "02 · Investigate",
+            "Understand each alert",
+            "Review event context, contributing risk signals, related activity, and an analyst-owned case decision.",
+        ),
+        (
+            "03 · Connect",
+            "Explore observed relationships",
+            "See device-to-device links found in the event sample. These links are observations—not proof of reachability or access.",
+        ),
+    ]
+    for column, (kicker, title, description) in zip(feature_columns, features):
+        with column:
+            st.markdown(
+                f'<div class="teqo-feature-card">'
+                f'<div class="teqo-section-kicker">{kicker}</div>'
+                f'<h3 style="margin-top:12px">{title}</h3>'
+                f'<p>{description}</p></div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("")
+    st.markdown("### How the prototype works")
+    steps = st.columns(4, gap="small")
+    for number, (title, description) in enumerate(
+        [
+            ("Activity", "Read authentication events."),
+            ("Prioritize", "Rank unusual patterns and add transparent risk factors."),
+            ("Investigate", "Give analysts context and observed relationships."),
+            ("Evaluate", "Compare rankings with known labels when available."),
+        ],
+        start=1,
+    ):
+        with steps[number - 1]:
+            st.markdown(
+                f'<div class="teqo-home-panel">'
+                f'<div class="teqo-section-kicker">STEP {number:02d}</div>'
+                f'<h4 style="margin-top:10px">{title}</h4>'
+                f'<p style="color:#A9BBC9;font-size:.86rem">{description}</p>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("")
+    st.markdown('<div class="teqo-section-kicker">MEET THE CREATOR</div>', unsafe_allow_html=True)
+    about_column, contact_column = st.columns([2, 1], gap="large")
+    with about_column:
+        st.markdown("### Hobby Yano")
+        st.markdown(
+            "I am a passionate and technology-driven student with a strong interest in "
+            "AI, cybersecurity, and software development. I am particularly interested "
+            "in exploring how emerging technologies can address real-world challenges "
+            "and contribute to building a safer digital environment. This passion "
+            "motivated me to participate in the INSA Summer Camp, even while balancing "
+            "the academic responsibilities of being a Grade 12 student preparing for "
+            "the national examination.\n\n"
+            "I enjoy researching new technologies, developing innovative solutions, "
+            "and transforming complex ideas into practical applications. Through the "
+            "INSA Summer Camp, I have been expanding my technical knowledge and "
+            "exploring the role of artificial intelligence in modern cybersecurity.\n\n"
+            "My project, TeqoAI, focuses on intelligent cybersecurity through "
+            "specialized AI models, risk analysis, and explainable artificial "
+            "intelligence. I aspire to develop innovative solutions that strengthen "
+            "digital security across sectors such as education, telecommunications, "
+            "finance, healthcare, and critical infrastructure. My long-term goal "
+            "is to become a skilled technology innovator who contributes to Ethiopia's "
+            "digital transformation through research, creativity, and impactful "
+            "technological solutions."
+        )
+
+    with contact_column:
+        st.markdown(
+            '<div class="teqo-home-panel">'
+            '<div class="teqo-section-kicker">CONNECT</div>'
+            '<h3 style="margin-top:10px">Let’s build safer technology</h3>'
+            '<p style="color:#A9BBC9;margin-bottom:0">Reach out for questions, feedback, or collaboration.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="teqo-contact-links">'
+            '<a class="teqo-contact-link" href="mailto:hobbieyano@gmail.com">'
+            '<span class="teqo-contact-icon"><svg viewBox="0 0 24 24" fill="none" '
+            'aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" '
+            'stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" '
+            'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+            'stroke-linejoin="round"/></svg></span>'
+            '<span class="teqo-contact-copy"><strong>Email</strong>'
+            '<span>hobbieyano@gmail.com</span></span>'
+            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
+            '<a class="teqo-contact-link" href="https://t.me/hobbie111" '
+            'target="_blank" rel="noopener noreferrer">'
+            '<span class="teqo-contact-icon telegram"><svg viewBox="0 0 24 24" '
+            'fill="currentColor" aria-hidden="true"><path d="M21.8 3.2 18.5 20c-.25 '
+            '1.18-.9 1.47-1.83.91l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.14 '
+            '9.36-8.45c.41-.36-.09-.56-.64-.2L5.67 13.42.7 11.87c-1.08-.34-1.1-1.08 '
+            '.23-1.6L20.37 2.7c.9-.33 1.68.22 1.43.5Z"/></svg></span>'
+            '<span class="teqo-contact-copy"><strong>Telegram</strong>'
+            '<span>@hobbie111</span></span>'
+            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
+            '<a class="teqo-contact-link" href="https://github.com/Juna-111" '
+            'target="_blank" rel="noopener noreferrer">'
+            '<span class="teqo-contact-icon github"><svg viewBox="0 0 24 24" '
+            'fill="currentColor" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 '
+            '21.63c.56.1.76-.24.76-.54v-2.08c-3.1.67-3.76-1.31-3.76-1.31-.5-1.28-1.24-'
+            '1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 1.7 '
+            '2.61 1.2 3.25.92.1-.72.39-1.2.71-1.48-2.47-.28-5.07-1.24-5.07-5.5 0-1.22 '
+            '.44-2.22 1.15-3-.12-.28-.5-1.43.11-2.97 0 0 .94-.3 3.05 1.15a10.6 10.6 '
+            '0 0 1 5.55 0c2.12-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.69.12 2.97.72.78 '
+            '1.15 1.78 1.15 3 0 4.27-2.61 5.22-5.1 5.49.4.35.76 1.02.76 2.06v3.05c0 '
+            '.3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg></span>'
+            '<span class="teqo-contact-copy"><strong>GitHub</strong>'
+            '<span>github.com/Juna-111</span></span>'
+            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("")
+    st.markdown(
+        '<div class="teqo-project-note"><b>Research prototype, not a production '
+        'security product.</b> '
+        + (
+            "This build uses generated demonstration activity; its results do not "
+            "establish accuracy on real networks. TeqoAI supports analyst review "
+            "and does not perform automated response."
+            if DATASET == "synthetic"
+            else
+            "Results depend on the selected dataset and available confirmed labels. "
+            "Scores are review priorities, not probabilities, and TeqoAI does not "
+            "perform automated response."
+        )
+        + '</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="teqo-foot">TEQOAI · Created by Hobby Yano · INSA Summer Camp</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_analyst_page(selected_page):
+    if not os.path.exists(CLEAN_FILE) or not os.path.exists(RISK_FILE):
+        st.title(PAGE_TITLES[selected_page])
+        st.info(
+            "The analyst workspace has no processed events yet. Run the local "
+            "demo pipeline, then return to this page."
+        )
+        return
+
+    clean_file_stat = os.stat(CLEAN_FILE)
+    risk_file_stat = os.stat(RISK_FILE)
+    try:
+        clean_events, risk_events = load_data(
+            clean_file_stat.st_mtime_ns,
+            clean_file_stat.st_size,
+            risk_file_stat.st_mtime_ns,
+            risk_file_stat.st_size,
+        )
+    except (OSError, pd.errors.ParserError, ValueError):
+        st.error("TeqoAI could not load the activity results. Please rerun the local demo.")
+        return
+
+    required_risk_columns = {
+        "risk_level", "risk_score", "time", "user", "device",
+        "target_device", "result", "action",
+    }
+    if required_risk_columns.difference(risk_events.columns):
+        st.error("The activity results are incomplete. Please rerun the local demo.")
+        return
+
+    try:
+        case_records = get_cases(DATASET)
+    except sqlite3.Error:
+        st.error("The case workspace is unavailable. Restart the local TeqoAI demo.")
+        return
+
+    report = None
+    provenance_issues = []
+    if os.path.exists(EVALUATION_FILE):
+        try:
+            with open(EVALUATION_FILE, encoding="utf-8") as report_file:
+                report = json.load(report_file)
+        except (OSError, json.JSONDecodeError):
+            provenance_issues.append("Evaluation results could not be read.")
+
+    if report is not None and not isinstance(report, dict):
+        provenance_issues.append("Evaluation results are not in a usable format.")
+        report = None
+
+    if report is not None:
+        clean_sha256 = cached_file_sha256(
+            CLEAN_FILE, clean_file_stat.st_mtime_ns, clean_file_stat.st_size
+        )
+        run_ids = (
+            risk_events["pipeline_run_id"].tolist()
+            if "pipeline_run_id" in risk_events else []
+        )
+        provenance_issues.extend(
+            validate_pipeline_provenance(report, DATASET, clean_sha256, run_ids)
+        )
+        if len(clean_events) != len(risk_events):
+            provenance_issues.append(
+                "Activity and risk results contain different event counts."
+            )
+
+    with st.sidebar:
+        filtered_events = apply_filters(risk_events, case_records)
+        with st.expander("Privacy note"):
+            st.caption(
+                "Case notes are stored unencrypted on this computer. Do not enter "
+                "sensitive production information."
+            )
+
+    title_column, badge_column = st.columns([5, 1])
+    with title_column:
+        st.title(PAGE_TITLES[selected_page])
+    with badge_column:
+        if DATASET == "synthetic":
+            st.markdown(
+                '<div class="teqo-data-badge">SYNTHETIC DEMO</div>',
+                unsafe_allow_html=True,
+            )
+
+    if selected_page == "Overview":
+        render_overview(risk_events, filtered_events, case_records)
+    elif selected_page == "Investigate":
+        try:
+            graph = load_graph(clean_events)
+            render_investigation(filtered_events, risk_events, graph, case_records)
+        except (KeyError, ValueError, sqlite3.Error):
+            st.error(
+                "The alert investigation could not be prepared. Refresh the demo "
+                "or try again later."
+            )
+    elif selected_page == "Observed Paths":
+        try:
+            graph = load_graph(clean_events)
+            render_twin(graph, filtered_events)
+        except (KeyError, ValueError, nx.NetworkXException):
+            st.error(
+                "The observed connections could not be prepared. Refresh the demo "
+                "or try again later."
+            )
+    else:
+        render_data_quality(clean_events, risk_events, report, provenance_issues)
+
+    st.markdown(
+        '<div class="teqo-foot">TEQOAI · Analyst-led security triage</div>',
+        unsafe_allow_html=True,
+    )
+
+
+brand_mark, brand_title = st.columns([0.65, 5])
 with brand_mark:
     if os.path.exists(LOGO_FILE):
-        st.image(LOGO_FILE, width=88)
+        st.image(LOGO_FILE, width=68)
     else:
-        st.error("TeqoAI logo is unavailable.")
+        st.markdown("◈")
 with brand_title:
     st.markdown(
         '<div style="padding-top:8px">'
         '<div style="font-size:1.55rem;font-weight:800;letter-spacing:.04em">'
         'TEQO<span style="color:#38BDF8">AI</span></div>'
+        '<div style="color:#94A3B8;font-size:.75rem">Explainable AI for authentication security</div>'
         '</div>',
         unsafe_allow_html=True,
     )
-selected_page = st.radio(
-    "Workspace",
-    options=list(PAGE_TITLES),
-    horizontal=True,
-    label_visibility="collapsed",
-    key="workspace_page",
-)
-title_column, badge_column = st.columns([5, 1])
-with title_column:
-    st.title(PAGE_TITLES[selected_page])
-with badge_column:
-    if DATASET == "synthetic":
-        st.markdown('<div class="teqo-data-badge">SYNTHETIC DEMO</div>', unsafe_allow_html=True)
 
-if selected_page == "Overview":
-    render_overview(risk_events, filtered_events, case_records)
-elif selected_page == "Investigate":
-    try:
-        graph = load_graph(clean_events)
-        render_investigation(filtered_events, risk_events, graph, case_records)
-    except (KeyError, ValueError, sqlite3.Error):
-        st.error(
-            "The alert investigation could not be prepared. Refresh the demo "
-            "or try again later."
-        )
-elif selected_page == "Observed Paths":
-    try:
-        graph = load_graph(clean_events)
-        render_twin(graph, filtered_events)
-    except (KeyError, ValueError, nx.NetworkXException):
-        st.error(
-            "The observed connections could not be prepared. Refresh the demo "
-            "or try again later."
-        )
-else:
-    render_data_quality(clean_events, risk_events, report, provenance_issues)
-
-st.markdown(
-    '<div class="teqo-foot">TEQOAI · Analyst-led security triage</div>',
-    unsafe_allow_html=True,
+home_page = st.Page(
+    render_homepage,
+    title="Home",
+    icon=":material/home:",
+    url_path="home",
+    default=True,
 )
+overview_page = st.Page(
+    lambda: render_analyst_page("Overview"),
+    title="Overview",
+    icon=":material/space_dashboard:",
+    url_path="overview",
+)
+investigation_page = st.Page(
+    lambda: render_analyst_page("Investigate"),
+    title="Investigate",
+    icon=":material/search:",
+    url_path="investigate",
+)
+paths_page = st.Page(
+    lambda: render_analyst_page("Observed Paths"),
+    title="Observed Paths",
+    icon=":material/hub:",
+    url_path="observed-paths",
+)
+results_page = st.Page(
+    lambda: render_analyst_page("Results & Method"),
+    title="Results & Method",
+    icon=":material/analytics:",
+    url_path="results",
+)
+
+current_page = st.navigation(
+    [
+        home_page,
+        overview_page,
+        investigation_page,
+        paths_page,
+        results_page,
+    ],
+    position="top",
+)
+current_page.run()
