@@ -97,7 +97,7 @@ $env:TEQO_MAX_AUTH_ROWS = "20000000" # optional; default is 2000000
 python -m src.data_prep
 python -m src.model
 python -m src.risk_engine
-python -m streamlit run dashboard/app.py
+python -m streamlit run dashboard/app.py --server.address 127.0.0.1
 ```
 
 The clean, scored, and risk files and model artifacts will be stored under `data/processed/lanl/` and `models/lanl/`. Keep `$env:TEQO_DATASET` set to `lanl` when launching the dashboard to view those outputs. Unset it (or set it to `synthetic`) to use the synthetic sample instead.
@@ -216,11 +216,13 @@ their false-alert counts/rates are still reported when possible.
 After a feature or evaluation schema change, rerun the model pipeline before
 using the previously generated scores, evaluation report, or model artifacts.
 
-The dashboard's **Results & Method** page presents final holdout and
+The dashboard's **Research & Evaluation** page presents final holdout and
 walk-forward results, labels small validation samples, and identifies stale
-or mismatched pipeline artifacts. Risk scores are prioritization signals, not
-calibrated probabilities; holdout metrics evaluate raw model rankings rather
-than the rule-adjusted risk score.
+or mismatched pipeline artifacts. **AI Intelligence** explains the features
+and ranking approaches, while **System Architecture** documents the implemented
+data, model, observed-path, and analyst-case flows. Risk scores are prioritization
+signals, not calibrated probabilities; holdout metrics evaluate raw model
+rankings rather than the rule-adjusted risk score.
 
 Evaluation is against exact red-team label matches. Events without a match are
 treated as negatives for calculation, but may include malicious behavior not
@@ -233,7 +235,8 @@ Run the full local demo and dashboard with:
 .\run_demo.ps1 -LaunchDashboard
 ```
 
-The dashboard binds to `127.0.0.1` by default. To run only the focused checks:
+The dashboard should remain bound to `127.0.0.1` for local research use. To
+run only the focused checks:
 
 ```powershell
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
@@ -245,11 +248,13 @@ root. This keeps imports consistent across scripts, dashboard code, and tests.
 ## Dashboard navigation
 
 The app opens on a project welcome page with creator information, project
-overview, and links into the analyst workspace. The top navigation separates
-the **Home**, **Overview**, **Investigate**, **Observed Paths**, and
-**Results & Method** pages. Home can be viewed without generated event or model
-artifacts; the analyst workspace requires the local pipeline outputs described
-above.
+overview, and links into the analyst workspace. Grouped sidebar navigation
+separates **Home**; **Operations** (Overview and Investigate);
+**Intelligence** (Observed Paths and AI Intelligence); and **Research**
+(Research & Evaluation and System Architecture). The welcome page, model
+explanations, and architecture can be viewed without generated event or model
+artifacts; operational views and evaluation evidence require the local pipeline
+outputs described above.
 
 ## Current implementation status
 
@@ -257,7 +262,8 @@ above.
 - [x] `src/model.py` — Isolation Forest and optional autoencoder scoring with chronological evaluation reporting
 - [x] `src/risk_engine.py` — transparent Low/Medium/High risk scoring
 - [x] `src/digital_twin.py` — observed-relationship graph, path analysis, and SHAP helpers
-- [x] `dashboard/app.py` — branded welcome page and top navigation, plus an
+- [x] `dashboard/app.py` — grouped navigation, responsive research and model
+  explanations, implementation-specific architecture diagrams, and an
   analyst dashboard with search, filters, investigation, evaluation evidence,
   and human-controlled triage
 - [ ] Validate model quality on downloaded LANL data with a held-out time period (future extension; not claimed by this synthetic MVP)
@@ -266,7 +272,7 @@ Run the full pipeline using the commands above, then launch the welcome page
 and analyst workspace:
 
 ```bash
-python -m streamlit run dashboard/app.py
+python -m streamlit run dashboard/app.py --server.address 127.0.0.1
 ```
 
 The observed-path graph is built only from successful authentication events.
@@ -279,3 +285,25 @@ stored unencrypted locally in `data/state/` using SQLite. Do not enter sensitive
 production data; protect and back up this directory according to your organization's
 handling requirements. TeqoAI presents recommendations for analyst review and does not
 automate response actions.
+
+## Security and deployment boundary
+
+This repository is a local research/demo application, not a secured hosted
+service. It has no user authentication or authorization. Keep Streamlit bound
+to `127.0.0.1`; do not expose it to a LAN, reverse proxy, or public network by
+changing the server address. The loopback setting does not protect data from
+other users or processes with access to the same computer.
+
+Raw inputs, processed events, model artifacts, SQLite case records, environment
+files, and Streamlit secrets are excluded from Git by `.gitignore`. Keep those
+files access-controlled. Case records are stored unencrypted, and the explicit
+case CSV export contains analyst notes. Treat both as sensitive; the CSV export
+escapes formula-like text for spreadsheet safety but does not encrypt or redact
+the data.
+
+Do not deploy this version publicly or use it for production monitoring.
+Before hosting, add and review authentication and authorization, HTTPS,
+protected persistent storage, data retention and backup controls, managed
+secret provisioning, and an operational dependency-update process. Reassess
+privacy and data-owner approval for every dataset. These controls are not
+implemented by the local MVP.

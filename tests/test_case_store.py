@@ -6,6 +6,14 @@ from src import case_store
 
 
 class CaseStoreTests(unittest.TestCase):
+    def test_csv_export_text_is_safe_for_spreadsheets(self):
+        for value in ("=1+1", " +SUM(A1:A2)", "\t@SUM(A1:A2)", "-1+2"):
+            with self.subTest(value=value):
+                self.assertEqual(case_store.csv_safe_text(value), "'" + value)
+
+        self.assertEqual(case_store.csv_safe_text("ordinary note"), "ordinary note")
+        self.assertEqual(case_store.csv_safe_text(42), 42)
+
     def test_case_save_persists_status_and_audit_entry(self):
         original_database = case_store.CASE_DB
         try:

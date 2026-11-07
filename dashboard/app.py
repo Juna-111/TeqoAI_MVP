@@ -1,5 +1,6 @@
 """TeqoAI analyst dashboard for authentication anomaly investigation."""
 
+import base64
 import hashlib
 import html
 import json
@@ -29,6 +30,7 @@ from src.provenance import sha256_file, validate_pipeline_provenance
 from src.case_store import (
     CASE_STATUSES,
     CHECKLIST_ITEMS,
+    csv_safe_text,
     export_cases,
     get_case_history,
     get_cases,
@@ -43,7 +45,7 @@ st.set_page_config(
     page_title="TeqoAI | Security Operations",
     page_icon="◈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 st.markdown(
@@ -62,10 +64,28 @@ st.markdown(
         background: #0A1726;
         border-right: 1px solid var(--teqo-border);
     }
+    .stMainBlockContainer {
+        max-width: 1440px;
+        padding: 2rem clamp(1rem, 3vw, 3rem) 3rem;
+    }
+    :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+        outline: 3px solid #7DD3FC !important;
+        outline-offset: 3px !important;
+        box-shadow: 0 0 0 2px #07111F !important;
+    }
+    [data-testid="stSidebarNav"] a[aria-current="page"] {
+        background: rgba(56, 189, 248, .14);
+        border-left: 3px solid var(--teqo-accent);
+    }
+    [data-testid="stSidebarNav"] a,
+    .stButton > button,
+    [data-testid="stPageLink-NavLink"] {
+        min-height: 44px;
+    }
     .teqo-brand { font-size: 1.25rem; font-weight: 750; letter-spacing: .04em; }
     .teqo-brand span { color: var(--teqo-accent); }
     .teqo-eyebrow {
-        color: var(--teqo-muted); font-size: .73rem; font-weight: 650;
+        color: #B3C1CC; font-size: .73rem; font-weight: 650;
         letter-spacing: .12em; text-transform: uppercase;
     }
     .teqo-banner {
@@ -100,6 +120,45 @@ st.markdown(
         margin: 0 0 12px;
         color: #E5F0F7;
         font-size: .92rem;
+    }
+    .teqo-process {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+        gap: 12px;
+        margin: 12px 0 24px;
+        padding: 0;
+        list-style: none;
+    }
+    .teqo-process li {
+        position: relative;
+        min-width: 0;
+        min-height: 104px;
+        padding: 16px;
+        border: 1px solid var(--teqo-border);
+        border-radius: 12px;
+        background: linear-gradient(145deg, #0E1B2A, #0A1726);
+    }
+    .teqo-process strong { display: block; margin-bottom: 7px; color: #E5F0F7; }
+    .teqo-process span { color: #B3C1CC; font-size: .84rem; line-height: 1.55; }
+    .teqo-contribution {
+        height: 100%;
+        min-height: 150px;
+        padding: 16px;
+        border: 1px solid var(--teqo-border);
+        border-radius: 12px;
+        background: var(--teqo-panel);
+    }
+    .teqo-contribution strong { display: block; margin-bottom: 8px; color: #E5F0F7; }
+    .teqo-contribution p { margin: 0; color: #B3C1CC; font-size: .84rem; line-height: 1.6; }
+    .teqo-contribution small { display: block; margin-top: 10px; color: #7DD3FC; }
+    .teqo-research-note {
+        padding: 14px 16px;
+        border: 1px solid rgba(251, 191, 36, .34);
+        border-left: 3px solid #FBBF24;
+        border-radius: 9px;
+        background: rgba(251, 191, 36, .07);
+        color: #F3E4BE;
+        line-height: 1.6;
     }
     .teqo-risk-row {
         display: grid;
@@ -166,29 +225,6 @@ st.markdown(
         letter-spacing: .06em;
         white-space: nowrap;
     }
-    .teqo-welcome-hero {
-        position: relative;
-        overflow: hidden;
-        padding: 34px;
-        border: 1px solid rgba(56, 189, 248, .24);
-        border-radius: 18px;
-        background:
-            radial-gradient(ellipse at 86% 12%, rgba(56,189,248,.18), transparent 38%),
-            linear-gradient(125deg, #0E1B2A 5%, #0A1726 70%);
-        box-shadow: 0 22px 60px rgba(0,0,0,.22);
-    }
-    .teqo-welcome-hero h1 {
-        margin: 8px 0 12px;
-        font-size: clamp(2rem, 4vw, 3.2rem);
-        line-height: 1.08;
-        letter-spacing: -.04em;
-    }
-    .teqo-welcome-hero p {
-        max-width: 720px;
-        color: #B5C5D2;
-        font-size: 1.04rem;
-        line-height: 1.7;
-    }
     .teqo-section-kicker {
         color: var(--teqo-accent);
         font-size: .73rem;
@@ -196,80 +232,218 @@ st.markdown(
         letter-spacing: .13em;
         text-transform: uppercase;
     }
-    .teqo-feature-card {
-        min-height: 168px;
-        padding: 20px;
-        border: 1px solid var(--teqo-border);
-        border-radius: 12px;
-        background: linear-gradient(145deg, #0E1B2A, #0A1726);
+    .st-key-teqo-home {
+        background:
+            radial-gradient(ellipse at 86% 3%, rgba(56,189,248,.09), transparent 31%);
     }
-    .teqo-feature-card h3 { margin: 0 0 8px; font-size: 1rem; }
-    .teqo-feature-card p {
-        margin: 0;
-        color: #A9BBC9;
-        font-size: .88rem;
-        line-height: 1.6;
+    .teqo-home-hero {
+        max-width: 920px;
+        padding: clamp(1.5rem, 5vw, 4rem) 0 2.5rem;
     }
-    .teqo-project-note {
-        border-left: 3px solid var(--teqo-accent);
-        border-radius: 8px;
-        padding: 14px 18px;
-        background: rgba(56,189,248,.07);
-        color: #C4D5E1;
-    }
-    .teqo-contact-links {
+    .teqo-home-hero-row {
         display: grid;
-        gap: 10px;
-        margin-top: 14px;
-    }
-    .teqo-contact-link {
-        display: flex;
+        grid-template-columns: minmax(0, 1.6fr) minmax(220px, .7fr);
         align-items: center;
-        gap: 12px;
-        min-height: 62px;
-        padding: 10px 13px;
-        border: 1px solid var(--teqo-border);
-        border-radius: 11px;
-        background: linear-gradient(120deg, rgba(14,27,42,.98), rgba(10,23,38,.96));
-        color: #E5F0F7 !important;
-        text-decoration: none !important;
-        transition: border-color .18s ease, transform .18s ease, background .18s ease;
+        gap: clamp(1rem, 4vw, 4rem);
     }
-    .teqo-contact-link:hover {
-        border-color: rgba(56,189,248,.65);
-        background: rgba(56,189,248,.08);
-        transform: translateY(-1px);
+    .teqo-home-hero-logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
     }
-    .teqo-contact-icon {
+    .teqo-home-hero-logo img {
+        width: min(100%, 340px);
+        height: auto;
+        filter: drop-shadow(0 18px 34px rgba(0, 120, 255, .16));
+    }
+    .teqo-home-hero h1 {
+        margin: 14px 0 18px;
+        font-size: clamp(2.7rem, 7vw, 5.4rem);
+        line-height: 1.02;
+        letter-spacing: -.055em;
+    }
+    .teqo-home-hero p {
+        max-width: 760px;
+        color: #B5C5D2;
+        font-size: clamp(1rem, 1.5vw, 1.16rem);
+        line-height: 1.8;
+    }
+    .teqo-home-section {
+        margin-top: clamp(2.5rem, 6vw, 5rem);
+    }
+    .teqo-home-section h2 {
+        margin: 8px 0 12px;
+        font-size: clamp(1.5rem, 3vw, 2rem);
+        letter-spacing: -.025em;
+    }
+    .teqo-home-copy {
+        max-width: 760px;
+        color: #B5C5D2;
+        font-size: 1rem;
+        line-height: 1.8;
+    }
+    .teqo-home-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 30px;
+        margin-top: 22px;
+        color: #D8E5EE;
+        font-size: .88rem;
+    }
+    .teqo-home-facts span { color: #8FA5B5; }
+    .teqo-home-feature {
+        padding: 12px 0;
+    }
+    .teqo-home-features {
         display: grid;
-        flex: 0 0 38px;
-        width: 38px;
-        height: 38px;
-        place-items: center;
-        border-radius: 10px;
-        background: rgba(56,189,248,.12);
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+        gap: clamp(20px, 4vw, 48px);
+        margin-top: 20px;
+    }
+    .teqo-home-feature .teqo-section-kicker { margin-bottom: 12px; }
+    .teqo-home-feature h3 { margin: 0 0 8px; font-size: 1.08rem; }
+    .teqo-home-feature p {
+        margin: 0;
+        color: #B5C5D2;
+        font-size: .9rem;
+        line-height: 1.7;
+    }
+    .teqo-home-steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+        gap: 20px;
+        margin: 20px 0 0;
+        padding: 0;
+        list-style: none;
+    }
+    .teqo-home-steps li { min-width: 0; padding: 8px 0; }
+    .teqo-home-steps strong {
+        display: block;
+        margin: 10px 0 6px;
+        color: #E5F0F7;
+        font-size: 1rem;
+    }
+    .teqo-home-steps span { color: #B5C5D2; font-size: .88rem; line-height: 1.6; }
+    .teqo-home-number { color: var(--teqo-accent); font-size: .76rem; font-weight: 750; }
+    .teqo-home-about { max-width: 880px; color: #B5C5D2; line-height: 1.8; }
+    .teqo-home-contacts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 24px;
+        margin-top: 18px;
+    }
+    .teqo-home-contacts a {
+        color: #DDF5FF !important;
+        text-decoration: underline;
+        text-decoration-color: rgba(56,189,248,.55);
+        text-underline-offset: 4px;
+    }
+    .teqo-home-contacts a:hover { color: #7DD3FC !important; }
+    .teqo-home-note {
+        max-width: 920px;
+        margin-top: 2rem;
+        color: #C4D5E1;
+        font-size: .9rem;
+        line-height: 1.75;
+    }
+    .st-key-teqo-home-footer {
+        margin-top: clamp(3rem, 7vw, 6rem);
+        padding: clamp(1.5rem, 4vw, 2.5rem) 0 1rem;
+        border-top: 1px solid var(--teqo-border);
+        background: linear-gradient(180deg, rgba(14,27,42,.35), transparent 75%);
+    }
+    .teqo-home-footer-brand {
+        max-width: 230px;
+        color: #B5C5D2;
+        font-size: .85rem;
+        line-height: 1.65;
+    }
+    .teqo-home-footer-brand img {
+        width: min(100%, 190px);
+        height: auto;
+        margin-bottom: 12px;
+    }
+    .teqo-home-footer-content h2 {
+        margin: 4px 0 8px;
+        color: #E5F0F7;
+        font-size: 1.35rem;
+    }
+    .teqo-home-footer-content p {
+        margin: 0;
+        color: #B5C5D2;
+        font-size: .9rem;
+        line-height: 1.7;
+    }
+    .teqo-home-footer-contacts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 24px;
+        margin: 18px 0 22px;
+    }
+    .teqo-home-footer-contacts a {
+        color: #DDF5FF !important;
+        font-size: .88rem;
+        text-decoration: underline;
+        text-decoration-color: rgba(56,189,248,.55);
+        text-underline-offset: 4px;
+    }
+    .teqo-home-footer-contacts a:hover { color: #7DD3FC !important; }
+    .teqo-home-footer-contacts a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .teqo-home-contact-icon {
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
+        align-items: center;
+        justify-content: center;
         color: #38BDF8;
     }
-    .teqo-contact-icon.telegram {
-        background: #229ED9;
-        color: #FFFFFF;
+    .teqo-home-contact-icon svg {
+        width: 17px;
+        height: 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
-    .teqo-contact-icon.github {
-        background: #F0F6FC;
-        color: #161B22;
+    .teqo-home-footer-note {
+        max-width: 800px;
+        margin-top: 14px !important;
+        color: #9FB1BF !important;
+        font-size: .8rem !important;
     }
-    .teqo-contact-icon svg { width: 21px; height: 21px; display: block; }
-    .teqo-contact-copy { min-width: 0; flex: 1; }
-    .teqo-contact-copy strong { display: block; font-size: .88rem; }
-    .teqo-contact-copy span {
-        display: block;
-        overflow: hidden;
+    .teqo-home-footer-bottom {
+        margin-top: 28px;
+        padding-top: 14px;
+        border-top: 1px solid var(--teqo-border);
         color: #94A3B8;
-        font-size: .75rem;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: .76rem;
     }
-    .teqo-contact-arrow { color: #7F94A6; font-size: 1rem; }
+    .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"] {
+        display: inline-flex;
+        width: auto;
+        justify-content: flex-start;
+        min-height: 44px;
+        margin-right: 1rem;
+        padding: 8px 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #DDF5FF;
+        text-decoration: none;
+    }
+    .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"]:hover {
+        border: 0;
+        background: transparent;
+        color: #7DD3FC;
+        text-decoration: underline;
+        text-underline-offset: 5px;
+    }
     [data-testid="stMain"] [data-testid="stPageLink-NavLink"] {
         display: flex;
         justify-content: center;
@@ -309,7 +483,35 @@ st.markdown(
         50% { opacity: 1; }
     }
     @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: .01ms !important;
+        }
         .teqo-graph-edge, .teqo-graph-node { animation: none; }
+    }
+    @media (max-width: 760px) {
+        .stMainBlockContainer { padding: 1.25rem 1rem 2rem; }
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            min-width: min(100%, 260px);
+            flex: 1 1 260px;
+        }
+        .teqo-home-hero { padding-top: 1.5rem; }
+        .teqo-home-hero-row { grid-template-columns: 1fr; }
+        .teqo-home-hero-logo { justify-content: flex-start; }
+        .teqo-home-hero-logo img { width: min(58vw, 240px); }
+        .teqo-home-facts { display: grid; gap: 10px; }
+        .teqo-home-steps { grid-template-columns: 1fr; gap: 12px; }
+        .teqo-home-footer-brand { max-width: 180px; }
+    }
+    @media (max-width: 420px) {
+        .stMainBlockContainer { padding-right: .75rem; padding-left: .75rem; }
+        .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"] { margin-right: .5rem; }
     }
     </style>
     """,
@@ -585,6 +787,13 @@ def render_overview(data, queue, cases):
             right_on="_event_id",
             how="left",
         ).drop(columns=["_event_id"])
+        case_export = case_export.apply(
+            lambda column: column.map(csv_safe_text)
+        )
+        export.caption(
+            "The export includes analyst notes. Store it securely; text is escaped "
+            "to reduce spreadsheet formula risks."
+        )
         export.download_button(
             "Export cases",
             data=case_export.to_csv(index=False),
@@ -980,11 +1189,66 @@ def render_twin(graph, queue):
         st.info(f"No onward connections were recorded from {selected_source}.")
 
 
-def render_data_quality(clean, data, report, provenance_issues):
-    st.subheader("Project results")
-    st.caption(
-        "A clear view of what this prototype reviewed and how it handled known examples."
+MODEL_LABELS = {
+    "first_seen_destination_baseline": "First-seen destination baseline",
+    "isolation_forest": "Isolation Forest",
+    "autoencoder": "Optional autoencoder",
+}
+
+
+def _format_metric(value, *, percent=False):
+    if value is None:
+        return "—"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{number:.1%}" if percent else f"{number:.3f}"
+
+
+def render_process_diagram(title, description, steps):
+    st.markdown(f"#### {title}")
+    st.caption(description)
+    items = "".join(
+        "<li><strong>{}</strong><span>{}</span></li>".format(
+            html.escape(str(label)), html.escape(str(detail))
+        )
+        for label, detail in steps
     )
+    st.markdown(
+        f'<ol class="teqo-process" aria-label="{html.escape(title)}">{items}</ol>',
+        unsafe_allow_html=True,
+    )
+
+
+def _format_model_results(models, known_positives, budget_number):
+    rows = []
+    for model_key, label in MODEL_LABELS.items():
+        metrics = models.get(model_key, {})
+        if not isinstance(metrics, dict):
+            continue
+        budget = metrics.get("alert_budgets", {}).get(str(budget_number), {})
+        evaluated = metrics.get("status") == "evaluated"
+        rows.append(
+            {
+                "Approach": label,
+                "Status": metrics.get("status", "not available").replace("_", " "),
+                "Known matches": (
+                    f"{budget.get('known_positive_hits', 0)} / {known_positives}"
+                    if evaluated else "Not evaluable"
+                ),
+                "Precision": _format_metric(budget.get("precision"), percent=True),
+                "Recall": _format_metric(budget.get("recall"), percent=True),
+                "F1": _format_metric(budget.get("f1_score"), percent=True),
+                "False-positive rate": _format_metric(
+                    budget.get("false_positive_rate"), percent=True
+                ),
+            }
+        )
+    return rows
+
+
+def render_data_quality(clean, data, report, provenance_issues):
     rows, users, assets = st.columns(3)
     rows.metric("Activity records reviewed", f"{len(data):,}")
     users.metric("Accounts represented", f"{data['user'].nunique():,}")
@@ -995,70 +1259,107 @@ def render_data_quality(clean, data, report, provenance_issues):
 
     if provenance_issues:
         st.warning(
-            "Results are unavailable because the current activity and results "
-            "do not match. Please refresh the TeqoAI demo."
+            "Results are unavailable because the current activity and evaluation "
+            "report do not match. Rerun the local demo pipeline before interpreting them."
         )
         return
     if report is None:
-        st.info("Results are not available yet. Please run the TeqoAI demo first.")
+        st.info("Evaluation evidence is not available yet. Run the local demo pipeline first.")
         return
 
-    split = report["split"]
-    evaluation = report["evaluation"]
-    test_labels = int(split.get("test_known_positive_labels", 0))
-    st.markdown("#### Known examples found")
+    split = report.get("split", {})
+    evaluation = report.get("evaluation", {})
+    known_positives = int(split.get("test_known_positive_labels", 0))
+    st.markdown("#### Chronological holdout")
     st.caption(
-        "The system reviews the most unusual activity first. These results count "
-        "how many examples marked in advance appeared in the first 30 items."
+        f"{int(split.get('training_events', 0)):,} earlier events were used for "
+        f"training and {int(split.get('test_events', 0)):,} later events were held "
+        f"out. The held-out period contains {known_positives} known positive labels."
     )
-    findings = []
-    labels = {
-        "first_seen_destination_baseline": "Simple behavior comparison",
-        "isolation_forest": "TeqoAI detection model",
-        "autoencoder": "Alternative model",
-    }
-    for model_name, metrics in evaluation.get("models", {}).items():
-        if not isinstance(metrics, dict):
-            continue
-        top_30 = metrics.get("alert_budgets", {}).get("30", {})
-        if metrics.get("status") != "evaluated":
-            found = "Not available"
-        else:
-            found = (
-                f"{int(top_30.get('known_positive_hits', 0))} of {test_labels}"
-            )
-        findings.append(
-            {"Approach": labels.get(model_name, "Additional comparison"), "Marked examples in first 30": found}
+    model_metrics = evaluation.get("models", {})
+    ranking_rows = [
+        {
+            "Approach": label,
+            "Status": model_metrics.get(model_key, {}).get("status", "not available").replace("_", " "),
+            "Average precision": _format_metric(
+                model_metrics.get(model_key, {}).get("average_precision"),
+                percent=True,
+            ),
+            "ROC-AUC": _format_metric(
+                model_metrics.get(model_key, {}).get("roc_auc"),
+                percent=True,
+            ),
+        }
+        for model_key, label in MODEL_LABELS.items()
+        if isinstance(model_metrics.get(model_key, {}), dict)
+    ]
+    if ranking_rows:
+        st.markdown("#### Ranking metrics")
+        st.dataframe(pd.DataFrame(ranking_rows), width="stretch", hide_index=True)
+    for budget_number in (30, 100):
+        findings = _format_model_results(
+            model_metrics, known_positives, budget_number
         )
-    if findings:
-        st.dataframe(pd.DataFrame(findings), width="stretch", hide_index=True)
+        if findings:
+            st.markdown(f"#### Top-{budget_number} review budget")
+            st.dataframe(pd.DataFrame(findings), width="stretch", hide_index=True)
+    st.caption(
+        "False-positive rates treat events without an exact label match as "
+        "negative for calculation; some may be malicious but unlabeled."
+    )
 
-    if test_labels < 20:
+    if known_positives < 20:
+        st.markdown(
+            f'<div class="teqo-research-note"><strong>Small label sample:</strong> '
+            f'the holdout contains only {known_positives} known positive labels. '
+            "These results are illustrative, not a stable measure of detection "
+            "performance. Events without a ground-truth match are not confirmed benign."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    elif report.get("dataset_profile") == "synthetic":
         st.warning(
-            f"This demonstration contains only {test_labels} marked examples in "
-            "the separate test period. Results are illustrative and are not a "
-            "stable measure of real-world detection performance."
+            "This is generated demonstration activity; its metrics do not establish "
+            "detection quality on LANL data or real organization networks."
         )
     st.info(
-        "This run uses generated demonstration activity, not live organization "
-        "data. Unmarked activity is not guaranteed harmless, and a high score is "
-        "a review priority—not a probability of compromise."
+        "The report evaluates raw ranking scores against known labels, not the "
+        "rule-adjusted risk score. A high score is a review priority—not a "
+        "probability of compromise."
     )
 
     walk_forward = report.get("walk_forward_validation", {})
     folds = walk_forward.get("folds", []) if isinstance(walk_forward, dict) else []
     if folds:
-        examples_by_period = [
-            int(fold.get("metrics", {}).get("known_positive_events", 0))
-            for fold in folds
-        ]
-        st.markdown("#### Earlier consistency checks")
-        st.caption(
-            f"{len(examples_by_period)} earlier periods contained "
-            f"{', '.join(map(str, examples_by_period))} "
-            "marked examples respectively. That is too few to draw a reliable "
-            "conclusion; real-data testing is still needed."
-        )
+        st.markdown("#### Earlier chronological validation folds")
+        fold_rows = []
+        for fold in folds:
+            fold_models = fold.get("models", {})
+            for model_key, label in MODEL_LABELS.items():
+                metrics = fold_models.get(model_key, {})
+                if not isinstance(metrics, dict):
+                    continue
+                budget = metrics.get("alert_budgets", {}).get("30", {})
+                fold_rows.append(
+                    {
+                        "Fold": fold.get("fold"),
+                        "Approach": label,
+                        "Validation events": metrics.get("test_events", 0),
+                        "Known positive labels": metrics.get("known_positive_events", 0),
+                        "Status": metrics.get("status", "not available").replace("_", " "),
+                        "Average precision": _format_metric(
+                            metrics.get("average_precision"), percent=True
+                        ),
+                        "Known matches in top 30": budget.get("known_positive_hits", 0),
+                    }
+                )
+        if fold_rows:
+            st.dataframe(pd.DataFrame(fold_rows), width="stretch", hide_index=True)
+            st.caption(
+                "Each fold uses the same chronological windows across the baseline "
+                "and available models. Folds without known positives are not "
+                "evaluable for detection quality."
+            )
 
     st.markdown("#### Activity overview")
     distribution = data["risk_level"].value_counts().reindex(
@@ -1068,67 +1369,294 @@ def render_data_quality(clean, data, report, provenance_issues):
     st.bar_chart(distribution, color=BRAND)
 
 
+def render_model_intelligence():
+    st.markdown("### What the models can—and cannot—say")
+    st.markdown(
+        "The detector learns a ranking of unusual authentication events without "
+        "training on the malicious-activity labels. Ground-truth labels are kept "
+        "for evaluation after the chronological split."
+    )
+    st.markdown(
+        '<div class="teqo-research-note"><strong>Interpretation:</strong> an '
+        "anomaly score is not a probability that an account is compromised. "
+        "Novelty can be legitimate, and suspicious activity can look familiar.</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### Event signals")
+    signals = [
+        (
+            "Authentication outcome",
+            "Whether the attempt succeeded or failed. Failures are a model feature "
+            "and risk factor, but never create observed device-graph edges.",
+        ),
+        (
+            "First-seen destination",
+            "Whether this user-to-destination pairing appears for the first time "
+            "in the available chronology.",
+        ),
+        (
+            "Prior-hour activity",
+            "The user's rolling authentication count over the preceding hour; "
+            "events at the same timestamp do not inflate one another.",
+        ),
+        (
+            "Authentication and logon type",
+            "One-hot encoded categories derived from the event's action field. "
+            "The model uses elapsed time, not invented calendar-hour features.",
+        ),
+    ]
+    columns = st.columns(2, gap="medium")
+    for index, (title, description) in enumerate(signals):
+        with columns[index % 2]:
+            st.markdown(
+                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
+                f"<p>{html.escape(description)}</p></div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("#### Compared ranking approaches")
+    models = [
+        (
+            "First-seen destination baseline",
+            "A simple behavior baseline that prioritizes first-time user-to-destination "
+            "pairs. It is included to make the value of more complex models testable.",
+        ),
+        (
+            "Isolation Forest",
+            "The primary unsupervised model. It is fitted on training-period event "
+            "features and scores events by isolation-based anomaly ranking.",
+        ),
+        (
+            "Optional autoencoder",
+            "A small reconstruction model trained in bounded batches. Higher "
+            "reconstruction error contributes to the anomaly ranking; the scores "
+            "are not calibrated probabilities.",
+        ),
+    ]
+    columns = st.columns(3, gap="medium")
+    for column, (title, description) in zip(columns, models):
+        with column:
+            st.markdown(
+                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
+                f"<p>{html.escape(description)}</p></div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("#### Turning scores into review context")
+    st.markdown(
+        "A transparent risk layer adds independently checkable factors—new "
+        "destination, sensitive asset, failed authentication, and burst activity—"
+        "to the normalized anomaly percentile. The analyst view shows those "
+        "reasons and, when the optional SHAP explainer is available, feature "
+        "contributions. Neither step automates a response."
+    )
+    render_process_diagram(
+        "From event to human review",
+        "Each stage adds context; it does not make an automated access or containment decision.",
+        [
+            ("Authentication event", "Common fields and observed outcome."),
+            ("Event features", "Novelty, prior-hour volume, method and outcome."),
+            ("Model ranking", "Isolation Forest and optional reconstruction error."),
+            ("Risk context", "Percentile plus transparent, named factors."),
+            ("Analyst review", "Event context, observed paths and case decision."),
+        ],
+    )
+
+
+RESEARCH_CONTRIBUTIONS = [
+    (
+        "01 · Consistent event schema",
+        "Supported synthetic and LANL input profiles map to a common authentication-event shape, keeping later pipeline stages consistent.",
+        "src/data_prep.py",
+    ),
+    (
+        "02 · Bounded log processing",
+        "Compressed authentication logs are streamed with a configurable row bound rather than loaded in full, making local experiments more manageable.",
+        "src/data_prep.py",
+    ),
+    (
+        "03 · Authentication-specific features",
+        "Features include failed outcomes, first-seen user/destination pairs, prior-hour activity, and one-hot action categories.",
+        "src/model.py",
+    ),
+    (
+        "04 · Time-safe feature behavior",
+        "Chronological ordering and tied-timestamp handling prevent simultaneous records from influencing each other's rolling history.",
+        "src/model.py",
+    ),
+    (
+        "05 · Unsupervised model comparison",
+        "Isolation Forest and an optional bounded-batch autoencoder are compared with a transparent first-seen-destination baseline.",
+        "src/model.py",
+    ),
+    (
+        "06 · Chronological validation",
+        "The latest time period is held out; expanding-window folds compare the same approaches without training on future events.",
+        "src/model.py",
+    ),
+    (
+        "07 · Review-budget evaluation",
+        "The evaluation report includes ranking and fixed top-30/top-100 review-budget metrics, confusion counts, and known-label coverage.",
+        "src/evaluation.py",
+    ),
+    (
+        "08 · Transparent risk factors",
+        "Named factors and documented score contributions complement the anomaly percentile so analysts can inspect why an event ranks highly.",
+        "src/risk_engine.py",
+    ),
+    (
+        "09 · Evidence-bounded relationship paths",
+        "The device graph counts successful authentication observations only; paths describe the sample, not general network reachability.",
+        "src/digital_twin.py",
+    ),
+    (
+        "10 · Reproducible, analyst-owned review",
+        "Run identifiers, hashes and provenance checks accompany results; case status, notes and audit entries remain local and analyst-controlled.",
+        "src/provenance.py · src/case_store.py",
+    ),
+]
+
+
+def render_research_and_evaluation(report, data, provenance_issues):
+    st.markdown("### Research question")
+    st.markdown(
+        "Can unsupervised authentication-anomaly rankings help prioritize known "
+        "red-team events in a later chronological period, compared with a "
+        "first-seen-destination baseline?"
+    )
+    st.markdown("### Evaluation design")
+    render_process_diagram(
+        "Train and evaluate without time leakage",
+        "Labels are evaluation evidence only; they are not inputs to unsupervised model fitting.",
+        [
+            ("Earlier events", "Fit feature transforms and unsupervised model(s)."),
+            ("Later holdout", "Keep a chronological period separate from training."),
+            ("Rank events", "Score holdout events using models fitted on earlier data."),
+            ("Compare", "Measure agreement with known labels at fixed review budgets."),
+        ],
+    )
+
+    if report is None or provenance_issues:
+        render_data_quality(pd.DataFrame(), data, None, provenance_issues)
+    else:
+        split = report.get("split", {})
+        st.markdown("### Evidence in the current run")
+        metadata_a, metadata_b, metadata_c = st.columns(3)
+        metadata_a.metric("Dataset profile", str(report.get("dataset_profile", "unknown")))
+        metadata_b.metric(
+            "Training events",
+            f"{int(split.get('training_events', 0)):,}",
+            help="Earlier chronological portion used to fit the models.",
+        )
+        metadata_c.metric(
+            "Holdout positive labels",
+            f"{int(split.get('test_known_positive_labels', 0)):,}",
+            help="Exact ground-truth matches in the later test period.",
+        )
+        render_data_quality(pd.DataFrame(), data, report, provenance_issues)
+
+    st.markdown("### Limitations and responsible interpretation")
+    st.markdown(
+        "- Ground truth is exact-match red-team labeling; an event without a label "
+        "match may still be malicious.\n"
+        "- A small number of known positives cannot support stable performance claims.\n"
+        "- Synthetic demonstrations validate the pipeline and evaluation code, "
+        "not real-world detection quality.\n"
+        "- Risk scores are prioritization values, not calibrated probabilities; "
+        "analysts remain responsible for case decisions.\n"
+        "- The current ingestion profiles are synthetic and LANL; arbitrary "
+        "organization exports need an approved, validated adapter."
+    )
+
+def render_architecture():
+    st.title("System architecture")
+    st.caption(
+        "A view of the current local research implementation and how its components connect."
+    )
+    st.markdown(
+        "The diagrams below describe the current local research implementation, "
+        "not a hosted or live-monitoring deployment."
+    )
+    render_process_diagram(
+        "Implemented data and review flow",
+        "Artifacts and processing follow the current pipeline modules and dashboard workflow.",
+        [
+            ("Profile input", "Synthetic demo or an authorized LANL sample."),
+            ("Data preparation", "Stream, normalize and label known matches."),
+            ("Chronological split", "Earlier training period; later held-out period."),
+            ("Model and risk", "Unsupervised ranking with transparent risk factors."),
+            ("Dashboard", "Filter, investigate, explore observed paths and manage cases."),
+        ],
+    )
+    render_process_diagram(
+        "Observed-path data flow",
+        "Only successful authentication events create device-to-device observations.",
+        [
+            ("Clean events", "Read device, destination and outcome."),
+            ("Successful only", "Failed attempts are excluded from graph edges."),
+            ("Directed graph", "Repeated successful observations increase edge weight."),
+            ("Bounded path query", "Shortest paths are limited to four hops and ranked by asset criticality."),
+            ("Analyst context", "Observed sample paths—not proof of reachability or authorization."),
+        ],
+    )
+    render_process_diagram(
+        "Local analyst case workflow",
+        "The analyst owns status, notes and decisions; TeqoAI does not execute containment.",
+        [
+            ("Select an event", "Review its authentication and risk context."),
+            ("Record decision", "Set status, owner, notes and checklist progress."),
+            ("Persist locally", "SQLite stores current case records on this computer."),
+            ("Audit changes", "Changed case state is recorded in a local audit history."),
+        ],
+    )
+    st.markdown("### Research and engineering contributions")
+    st.caption(
+        "These are implementation contributions of the prototype, not claims of "
+        "validated operational effectiveness."
+    )
+    columns = st.columns(2, gap="medium")
+    for index, (title, description, source) in enumerate(RESEARCH_CONTRIBUTIONS):
+        with columns[index % 2]:
+            st.markdown(
+                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
+                f"<p>{html.escape(description)}</p>"
+                f"<small>{html.escape(source)}</small></div>",
+                unsafe_allow_html=True,
+            )
+    st.markdown(
+        '<div class="teqo-research-note"><strong>Local prototype:</strong> '
+        "case notes are stored unencrypted on this computer. Do not enter "
+        "sensitive production information. The project is not a production "
+        "security product and does not provide live monitoring or automated response."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 PAGE_TITLES = {
-    "Overview": "Shift overview",
+    "Overview": "Operations overview",
     "Investigate": "Alert investigation",
-    "Observed Paths": "Observed connections",
-    "Results & Method": "Results and approach",
+    "Observed Paths": "Observed paths",
+    "AI Intelligence": "AI model intelligence",
+    "Research & Evaluation": "Research and evaluation",
+}
+
+PAGE_DESCRIPTIONS = {
+    "Overview": "A concise view of the current event queue and review workload.",
+    "Investigate": "Inspect event evidence and record an analyst-owned case decision.",
+    "Observed Paths": "Explore successful authentication relationships in the loaded sample.",
+    "AI Intelligence": "Understand the implemented features, ranking approaches and score interpretation.",
+    "Research & Evaluation": "Review the chronological evaluation design, measured evidence and limitations.",
 }
 
 
 def render_homepage():
-    st.markdown(
-        "<style>[data-testid='stSidebar'],"
-        "[data-testid='stSidebarCollapsedControl']{display:none!important}</style>",
-        unsafe_allow_html=True,
+    with open(LOGO_FILE, "rb") as logo_file:
+        logo_data = base64.b64encode(logo_file.read()).decode("ascii")
+    logo_markup = (
+        f'<img src="data:image/png;base64,{logo_data}" alt="TeqoAI logo">'
     )
-
-    hero, summary = st.columns([1.55, 1], gap="large", vertical_alignment="center")
-    with hero:
-        st.markdown('<div class="teqo-section-kicker">INSA SUMMER CAMP · GRADUATION PROJECT</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="teqo-welcome-hero">'
-            '<h1>Welcome to <span style="color:#38BDF8">TeqoAI</span></h1>'
-            '<p>Making authentication security easier to understand, investigate, '
-            'and improve with explainable artificial intelligence.</p>'
-            '<p>TeqoAI explores how unusual login behavior can be prioritized for '
-            'human review—connecting anomaly signals with clear evidence and '
-            'observed device relationships.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        cta_workspace, cta_results = st.columns(2)
-        cta_workspace.page_link(
-            overview_page,
-            label="Explore the dashboard",
-            icon=":material/arrow_forward:",
-            width="stretch",
-        )
-        cta_results.page_link(
-            results_page,
-            label="See project results",
-            icon=":material/analytics:",
-            width="stretch",
-        )
-
-    with summary:
-        st.markdown(
-            '<div class="teqo-home-panel">'
-            '<div class="teqo-section-kicker">THE PROJECT</div>'
-            '<h3 style="margin-top:10px">Explainable authentication triage</h3>'
-            '<p style="color:#A9BBC9;line-height:1.65">A research prototype that '
-            'ranks unusual authentication activity, explains contributing signals, '
-            'and supports analyst-led investigation.</p>'
-            '<div class="teqo-queue-stat"><span>Focus</span><strong>Authentication activity</strong></div>'
-            '<div class="teqo-queue-stat"><span>Approach</span><strong>Unsupervised anomaly ranking</strong></div>'
-            '<div class="teqo-queue-stat"><span>Decision-maker</span><strong>Human analyst</strong></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("")
-    st.markdown('<div class="teqo-section-kicker">WHAT YOU CAN EXPLORE</div>', unsafe_allow_html=True)
-    feature_columns = st.columns(3, gap="medium")
     features = [
         (
             "01 · Detect",
@@ -1146,143 +1674,205 @@ def render_homepage():
             "See device-to-device links found in the event sample. These links are observations—not proof of reachability or access.",
         ),
     ]
-    for column, (kicker, title, description) in zip(feature_columns, features):
-        with column:
+    feature_markup = "".join(
+        f'<article class="teqo-home-feature">'
+        f'<div class="teqo-section-kicker">{html.escape(kicker)}</div>'
+        f'<h3>{html.escape(title)}</h3>'
+        f'<p>{html.escape(description)}</p></article>'
+        for kicker, title, description in features
+    )
+    creator_paragraphs = [
+        "I am a passionate and technology-driven student with a strong interest in "
+        "AI, cybersecurity, and software development. I am particularly interested "
+        "in exploring how emerging technologies can address real-world challenges "
+        "and contribute to building a safer digital environment. This passion "
+        "motivated me to participate in the INSA Summer Camp, even while balancing "
+        "the academic responsibilities of being a Grade 12 student preparing for "
+        "the national examination.",
+        "I enjoy researching new technologies, developing innovative solutions, "
+        "and transforming complex ideas into practical applications. Through the "
+        "INSA Summer Camp, I have been expanding my technical knowledge and "
+        "exploring the role of artificial intelligence in modern cybersecurity.",
+        "My project, TeqoAI, focuses on intelligent cybersecurity through "
+        "specialized AI models, risk analysis, and explainable artificial "
+        "intelligence. I aspire to develop innovative solutions that strengthen "
+        "digital security across sectors such as education, telecommunications, "
+        "finance, healthcare, and critical infrastructure. My long-term goal "
+        "is to become a skilled technology innovator who contributes to Ethiopia's "
+        "digital transformation through research, creativity, and impactful "
+        "technological solutions.",
+    ]
+    creator_markup = "".join(
+        f"<p>{html.escape(paragraph)}</p>" for paragraph in creator_paragraphs
+    )
+
+    with st.container(key="teqo-home"):
+        hero_text, hero_logo = st.columns([1.7, .8], gap="large")
+        with hero_text:
             st.markdown(
-                f'<div class="teqo-feature-card">'
-                f'<div class="teqo-section-kicker">{kicker}</div>'
-                f'<h3 style="margin-top:12px">{title}</h3>'
-                f'<p>{description}</p></div>',
+                '<section class="teqo-home-hero">'
+                '<div class="teqo-section-kicker">INSA SUMMER CAMP · GRADUATION PROJECT</div>'
+                '<h1>Welcome to <span style="color:#38BDF8">TeqoAI</span></h1>'
+                '<p>Making authentication security easier to understand, investigate, '
+                'and improve with explainable artificial intelligence.</p>'
+                '<p>TeqoAI explores how unusual login behavior can be prioritized for '
+                'human review—connecting anomaly signals with clear evidence and '
+                'observed device relationships.</p>'
+                '</section>',
+                unsafe_allow_html=True,
+            )
+        with hero_logo:
+            st.markdown(
+                f'<div class="teqo-home-hero-logo">{logo_markup}</div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown("")
-    st.markdown("### How the prototype works")
-    steps = st.columns(4, gap="small")
-    for number, (title, description) in enumerate(
-        [
-            ("Activity", "Read authentication events."),
-            ("Prioritize", "Rank unusual patterns and add transparent risk factors."),
-            ("Investigate", "Give analysts context and observed relationships."),
-            ("Evaluate", "Compare rankings with known labels when available."),
-        ],
-        start=1,
-    ):
-        with steps[number - 1]:
+        cta_workspace, cta_results = st.columns([1, 1], gap="small")
+        cta_workspace.page_link(
+            overview_page,
+            label="Explore the dashboard",
+            icon=":material/arrow_forward:",
+        )
+        cta_results.page_link(
+            results_page,
+            label="See project results",
+            icon=":material/analytics:",
+        )
+
+        st.markdown(
+            '<section class="teqo-home-section">'
+            '<div class="teqo-section-kicker">THE PROJECT</div>'
+            '<h2>Explainable authentication triage</h2>'
+            '<p class="teqo-home-copy">A research prototype that ranks unusual '
+            'authentication activity, explains contributing signals, and supports '
+            'analyst-led investigation.</p>'
+            '<div class="teqo-home-facts">'
+            '<div><span>Focus</span> · Authentication activity</div>'
+            '<div><span>Approach</span> · Unsupervised anomaly ranking</div>'
+            '<div><span>Decision-maker</span> · Human analyst</div>'
+            '</div></section>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<section class="teqo-home-section">'
+            '<div class="teqo-section-kicker">WHAT YOU CAN EXPLORE</div>'
+            '<div class="teqo-home-features">'
+            + feature_markup
+            + "</div></section>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<section class="teqo-home-section">'
+            '<div class="teqo-section-kicker">THE APPROACH</div>'
+            '<h2>How the prototype works</h2>'
+            '<ol class="teqo-home-steps">'
+            '<li><span class="teqo-home-number">01</span><strong>Activity</strong>'
+            '<span>Read authentication events.</span></li>'
+            '<li><span class="teqo-home-number">02</span><strong>Prioritize</strong>'
+            '<span>Rank unusual patterns and add transparent risk factors.</span></li>'
+            '<li><span class="teqo-home-number">03</span><strong>Investigate</strong>'
+            '<span>Give analysts context and observed relationships.</span></li>'
+            '<li><span class="teqo-home-number">04</span><strong>Evaluate</strong>'
+            '<span>Compare rankings with known labels when available.</span></li>'
+            '</ol></section>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<section class="teqo-home-section">'
+            '<div class="teqo-section-kicker">MEET THE CREATOR</div>'
+            '<h2>Hobby Yano</h2>'
+            f'<div class="teqo-home-about">{creator_markup}</div>'
+            '</section>',
+            unsafe_allow_html=True,
+        )
+
+        with st.container(key="teqo-home-footer"):
+            footer_brand, footer_content = st.columns([.8, 2.2], gap="large")
+            with footer_brand:
+                st.markdown(
+                    '<div class="teqo-home-footer-brand">'
+                    + logo_markup
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+            with footer_content:
+                st.markdown(
+                    '<div class="teqo-home-footer-content">'
+                    '<div class="teqo-section-kicker">CONNECT</div>'
+                    '<h2>Let’s build safer technology</h2>'
+                    '<p>Reach out for questions, feedback, or collaboration.</p>'
+                    '<div class="teqo-home-footer-contacts">'
+                    '<a href="mailto:hobbieyano@gmail.com">'
+                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
+                    '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/>'
+                    '<path d="m3 7 9 6 9-6"/></svg></span>'
+                    'Email · hobbieyano@gmail.com</a>'
+                    '<a href="https://t.me/hobbie111" target="_blank" rel="noopener noreferrer">'
+                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
+                    '<svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/>'
+                    '<path d="M22 2 11 13"/></svg></span>'
+                    'Telegram · @hobbie111</a>'
+                    '<a href="https://github.com/Juna-111" target="_blank" '
+                    'rel="noopener noreferrer">'
+                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
+                    '<svg viewBox="0 0 24 24"><path d="m8 9-3 3 3 3M16 9l3 3-3 3"/>'
+                    '<path d="m14 5-4 14"/></svg></span>'
+                    'GitHub · github.com/Juna-111</a>'
+                    '<a href="tel:+251962703558">'
+                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
+                    '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 '
+                    '19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 '
+                    '2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.9L7.7 '
+                    '9.7a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.9-.6l2.8.5a2 2 0 0 1 '
+                    '1.7 2.6Z"/></svg></span>'
+                    'Phone · (+251962703558)</a>'
+                    '</div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.page_link(
+                    architecture_page,
+                    label="Explore the system architecture and research contributions",
+                    icon=":material/schema:",
+                )
+                st.markdown(
+                    '<p class="teqo-home-footer-note"><strong>Research prototype, '
+                    'not a production security product.</strong> '
+                    + (
+                        "This build uses generated demonstration activity; its results do not "
+                        "establish accuracy on real networks. TeqoAI supports analyst review "
+                        "and does not perform automated response."
+                        if DATASET == "synthetic"
+                        else
+                        "Results depend on the selected dataset and available confirmed labels. "
+                        "Scores are review priorities, not probabilities, and TeqoAI does not "
+                        "perform automated response."
+                    )
+                    + "</p>",
+                    unsafe_allow_html=True,
+                )
             st.markdown(
-                f'<div class="teqo-home-panel">'
-                f'<div class="teqo-section-kicker">STEP {number:02d}</div>'
-                f'<h4 style="margin-top:10px">{title}</h4>'
-                f'<p style="color:#A9BBC9;font-size:.86rem">{description}</p>'
-                f'</div>',
+                '<div class="teqo-home-footer-bottom">'
+                'TEQOAI · Created by Hobby Yano · INSA Summer Camp</div>',
                 unsafe_allow_html=True,
             )
-
-    st.markdown("")
-    st.markdown('<div class="teqo-section-kicker">MEET THE CREATOR</div>', unsafe_allow_html=True)
-    about_column, contact_column = st.columns([2, 1], gap="large")
-    with about_column:
-        st.markdown("### Hobby Yano")
-        st.markdown(
-            "I am a passionate and technology-driven student with a strong interest in "
-            "AI, cybersecurity, and software development. I am particularly interested "
-            "in exploring how emerging technologies can address real-world challenges "
-            "and contribute to building a safer digital environment. This passion "
-            "motivated me to participate in the INSA Summer Camp, even while balancing "
-            "the academic responsibilities of being a Grade 12 student preparing for "
-            "the national examination.\n\n"
-            "I enjoy researching new technologies, developing innovative solutions, "
-            "and transforming complex ideas into practical applications. Through the "
-            "INSA Summer Camp, I have been expanding my technical knowledge and "
-            "exploring the role of artificial intelligence in modern cybersecurity.\n\n"
-            "My project, TeqoAI, focuses on intelligent cybersecurity through "
-            "specialized AI models, risk analysis, and explainable artificial "
-            "intelligence. I aspire to develop innovative solutions that strengthen "
-            "digital security across sectors such as education, telecommunications, "
-            "finance, healthcare, and critical infrastructure. My long-term goal "
-            "is to become a skilled technology innovator who contributes to Ethiopia's "
-            "digital transformation through research, creativity, and impactful "
-            "technological solutions."
-        )
-
-    with contact_column:
-        st.markdown(
-            '<div class="teqo-home-panel">'
-            '<div class="teqo-section-kicker">CONNECT</div>'
-            '<h3 style="margin-top:10px">Let’s build safer technology</h3>'
-            '<p style="color:#A9BBC9;margin-bottom:0">Reach out for questions, feedback, or collaboration.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="teqo-contact-links">'
-            '<a class="teqo-contact-link" href="mailto:hobbieyano@gmail.com">'
-            '<span class="teqo-contact-icon"><svg viewBox="0 0 24 24" fill="none" '
-            'aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" '
-            'stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" '
-            'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
-            'stroke-linejoin="round"/></svg></span>'
-            '<span class="teqo-contact-copy"><strong>Email</strong>'
-            '<span>hobbieyano@gmail.com</span></span>'
-            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
-            '<a class="teqo-contact-link" href="https://t.me/hobbie111" '
-            'target="_blank" rel="noopener noreferrer">'
-            '<span class="teqo-contact-icon telegram"><svg viewBox="0 0 24 24" '
-            'fill="currentColor" aria-hidden="true"><path d="M21.8 3.2 18.5 20c-.25 '
-            '1.18-.9 1.47-1.83.91l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.14 '
-            '9.36-8.45c.41-.36-.09-.56-.64-.2L5.67 13.42.7 11.87c-1.08-.34-1.1-1.08 '
-            '.23-1.6L20.37 2.7c.9-.33 1.68.22 1.43.5Z"/></svg></span>'
-            '<span class="teqo-contact-copy"><strong>Telegram</strong>'
-            '<span>@hobbie111</span></span>'
-            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
-            '<a class="teqo-contact-link" href="https://github.com/Juna-111" '
-            'target="_blank" rel="noopener noreferrer">'
-            '<span class="teqo-contact-icon github"><svg viewBox="0 0 24 24" '
-            'fill="currentColor" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 '
-            '21.63c.56.1.76-.24.76-.54v-2.08c-3.1.67-3.76-1.31-3.76-1.31-.5-1.28-1.24-'
-            '1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 1.7 '
-            '2.61 1.2 3.25.92.1-.72.39-1.2.71-1.48-2.47-.28-5.07-1.24-5.07-5.5 0-1.22 '
-            '.44-2.22 1.15-3-.12-.28-.5-1.43.11-2.97 0 0 .94-.3 3.05 1.15a10.6 10.6 '
-            '0 0 1 5.55 0c2.12-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.69.12 2.97.72.78 '
-            '1.15 1.78 1.15 3 0 4.27-2.61 5.22-5.1 5.49.4.35.76 1.02.76 2.06v3.05c0 '
-            '.3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg></span>'
-            '<span class="teqo-contact-copy"><strong>GitHub</strong>'
-            '<span>github.com/Juna-111</span></span>'
-            '<span class="teqo-contact-arrow" aria-hidden="true">↗</span></a>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("")
-    st.markdown(
-        '<div class="teqo-project-note"><b>Research prototype, not a production '
-        'security product.</b> '
-        + (
-            "This build uses generated demonstration activity; its results do not "
-            "establish accuracy on real networks. TeqoAI supports analyst review "
-            "and does not perform automated response."
-            if DATASET == "synthetic"
-            else
-            "Results depend on the selected dataset and available confirmed labels. "
-            "Scores are review priorities, not probabilities, and TeqoAI does not "
-            "perform automated response."
-        )
-        + '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="teqo-foot">TEQOAI · Created by Hobby Yano · INSA Summer Camp</div>',
-        unsafe_allow_html=True,
-    )
 
 
 def render_analyst_page(selected_page):
     if not os.path.exists(CLEAN_FILE) or not os.path.exists(RISK_FILE):
         st.title(PAGE_TITLES[selected_page])
-        st.info(
-            "The analyst workspace has no processed events yet. Run the local "
-            "demo pipeline, then return to this page."
-        )
+        st.caption(PAGE_DESCRIPTIONS[selected_page])
+        if selected_page == "AI Intelligence":
+            render_model_intelligence()
+        elif selected_page == "Research & Evaluation":
+            render_research_and_evaluation(None, pd.DataFrame(), [])
+        else:
+            st.info(
+                "The analyst workspace has no processed events yet. Run the local "
+                "demo pipeline, then return to this page."
+            )
         return
 
     clean_file_stat = os.stat(CLEAN_FILE)
@@ -1306,11 +1896,13 @@ def render_analyst_page(selected_page):
         st.error("The activity results are incomplete. Please rerun the local demo.")
         return
 
-    try:
-        case_records = get_cases(DATASET)
-    except sqlite3.Error:
-        st.error("The case workspace is unavailable. Restart the local TeqoAI demo.")
-        return
+    case_records = {}
+    if selected_page in {"Overview", "Investigate", "Observed Paths"}:
+        try:
+            case_records = get_cases(DATASET)
+        except sqlite3.Error:
+            st.error("The case workspace is unavailable. Restart the local TeqoAI demo.")
+            return
 
     report = None
     provenance_issues = []
@@ -1341,17 +1933,20 @@ def render_analyst_page(selected_page):
                 "Activity and risk results contain different event counts."
             )
 
-    with st.sidebar:
-        filtered_events = apply_filters(risk_events, case_records)
-        with st.expander("Privacy note"):
-            st.caption(
-                "Case notes are stored unencrypted on this computer. Do not enter "
-                "sensitive production information."
-            )
+    filtered_events = risk_events
+    if selected_page in {"Overview", "Investigate", "Observed Paths"}:
+        with st.sidebar:
+            filtered_events = apply_filters(risk_events, case_records)
+            with st.expander("Privacy note"):
+                st.caption(
+                    "Case notes are stored unencrypted on this computer. Do not enter "
+                    "sensitive production information."
+                )
 
     title_column, badge_column = st.columns([5, 1])
     with title_column:
         st.title(PAGE_TITLES[selected_page])
+        st.caption(PAGE_DESCRIPTIONS[selected_page])
     with badge_column:
         if DATASET == "synthetic":
             st.markdown(
@@ -1379,6 +1974,10 @@ def render_analyst_page(selected_page):
                 "The observed connections could not be prepared. Refresh the demo "
                 "or try again later."
             )
+    elif selected_page == "AI Intelligence":
+        render_model_intelligence()
+    elif selected_page == "Research & Evaluation":
+        render_research_and_evaluation(report, risk_events, provenance_issues)
     else:
         render_data_quality(clean_events, risk_events, report, provenance_issues)
 
@@ -1387,22 +1986,6 @@ def render_analyst_page(selected_page):
         unsafe_allow_html=True,
     )
 
-
-brand_mark, brand_title = st.columns([0.65, 5])
-with brand_mark:
-    if os.path.exists(LOGO_FILE):
-        st.image(LOGO_FILE, width=68)
-    else:
-        st.markdown("◈")
-with brand_title:
-    st.markdown(
-        '<div style="padding-top:8px">'
-        '<div style="font-size:1.55rem;font-weight:800;letter-spacing:.04em">'
-        'TEQO<span style="color:#38BDF8">AI</span></div>'
-        '<div style="color:#94A3B8;font-size:.75rem">Explainable AI for authentication security</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
 
 home_page = st.Page(
     render_homepage,
@@ -1429,21 +2012,43 @@ paths_page = st.Page(
     icon=":material/hub:",
     url_path="observed-paths",
 )
+intelligence_page = st.Page(
+    lambda: render_analyst_page("AI Intelligence"),
+    title="AI Intelligence",
+    icon=":material/psychology:",
+    url_path="ai-intelligence",
+)
 results_page = st.Page(
-    lambda: render_analyst_page("Results & Method"),
-    title="Results & Method",
+    lambda: render_analyst_page("Research & Evaluation"),
+    title="Research & Evaluation",
     icon=":material/analytics:",
-    url_path="results",
+    url_path="research",
+)
+architecture_page = st.Page(
+    render_architecture,
+    title="System Architecture",
+    icon=":material/schema:",
+    url_path="architecture",
 )
 
 current_page = st.navigation(
-    [
-        home_page,
-        overview_page,
-        investigation_page,
-        paths_page,
-        results_page,
-    ],
-    position="top",
+    {
+        "Project": [home_page],
+        "Operations": [overview_page, investigation_page],
+        "Intelligence": [paths_page, intelligence_page],
+        "Research": [results_page, architecture_page],
+    },
+    position="sidebar",
 )
+with st.sidebar:
+    st.divider()
+    if os.path.exists(LOGO_FILE):
+        st.image(LOGO_FILE, width=46)
+    st.markdown(
+        '<div class="teqo-brand">TEQO<span>AI</span></div>'
+        '<div style="color:#B3C1CC;font-size:.76rem;line-height:1.5">'
+        "Explainable authentication triage</div>",
+        unsafe_allow_html=True,
+    )
+    st.caption("Local research prototype")
 current_page.run()

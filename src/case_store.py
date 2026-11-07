@@ -191,3 +191,10 @@ def export_cases(dataset):
         entry["checklist"] = json.loads(entry.pop("checklist_json"))
         exported.append(entry)
     return exported
+
+
+def csv_safe_text(value):
+    """Keep untrusted text from being interpreted as a spreadsheet formula."""
+    if isinstance(value, str) and value.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
