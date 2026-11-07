@@ -58,7 +58,7 @@ USER_SERVERS = {u: random.sample(SERVERS, k=random.choice([1, 2])) for u in USER
 AUTH_TYPES = ["Kerberos", "NTLM", "Negotiate"]
 LOGON_TYPES_NORMAL = ["Network", "Interactive"]
 
-NUM_COMPROMISED_USERS = 4       # how many users get a red-team attack chain
+NUM_COMPROMISED_USERS = 20      # spread labeled chains across train and holdout
 NUM_BENIGN_ANOMALIES = 300      # realistic "weird but not malicious" events
 TEST_DAY_START = max(1, int(NUM_DAYS * 0.8))
 

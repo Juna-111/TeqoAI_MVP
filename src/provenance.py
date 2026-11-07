@@ -83,16 +83,25 @@ def validate_pipeline_provenance(report, dataset_profile, input_sha256, risk_run
         issues.append("Evaluation report model metrics are missing or malformed.")
     else:
         for model_name, metrics in evaluation["models"].items():
-            if not isinstance(metrics, dict) or not isinstance(
-                metrics.get("alert_budgets", {}), dict
+            if not isinstance(metrics, dict):
+                issues.append(
+                    f"Evaluation metrics for {model_name!r} are malformed."
+                )
+                break
+            alert_budgets = metrics.get("alert_budgets")
+            if (
+                alert_budgets is None
+                and metrics.get("status") == "not_available"
             ):
+                continue
+            if not isinstance(alert_budgets, dict):
                 issues.append(
                     f"Evaluation metrics for {model_name!r} are malformed."
                 )
                 break
             if any(
                 not isinstance(result, dict)
-                for result in metrics["alert_budgets"].values()
+                for result in alert_budgets.values()
             ):
                 issues.append(
                     f"Alert-budget metrics for {model_name!r} are malformed."

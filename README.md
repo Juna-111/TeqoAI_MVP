@@ -24,6 +24,7 @@ teqoai/
 │   ├── risk_engine.py         ← transparent rule-assisted risk score
 │   ├── digital_twin.py        ← successful-auth relationship graph and paths
 │   ├── dataset_paths.py       ← synthetic/LANL output isolation
+│   ├── demo_pipeline.py       ← on-demand synthetic demo for hosted reviewers
 │   └── case_store.py          ← local analyst case records
 ├── dashboard/
 │   └── app.py                 ← welcome page and Streamlit analyst workspace
@@ -40,6 +41,13 @@ cd teqoai
 python3 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+The base install runs the Isolation Forest evaluation. To also compare the
+optional PyTorch autoencoder and SHAP explanations locally, install:
+
+```bash
+pip install -r requirements-optional.txt
 ```
 
 ## Step 1: Get the dataset
@@ -310,7 +318,7 @@ provisioning, and an operational dependency-update process. Reassess privacy
 and data-owner approval for every dataset. These controls are not implemented
 by the MVP.
 
-### Streamlit Community Cloud (public demo only)
+### Streamlit Community Cloud (synthetic evaluation demo only)
 
 The dashboard entry point adds the repository root to Python's import path, so
 the `src` package resolves when Streamlit Cloud launches
@@ -321,10 +329,24 @@ the `src` package resolves when Streamlit Cloud launches
    `dashboard/app.py`.
 3. Deploy. Cloud installs the root `requirements.txt` and reads the theme from
    `.streamlit/config.toml`.
+4. On **Home**, click **Generate demo data and run evaluation**. The app creates
+   the deterministic synthetic sample and runs data preparation, model
+   evaluation, and risk scoring on the Cloud instance. No upload or secret is
+   needed.
+5. Open **Research & Evaluation** to inspect held-out known-positive coverage,
+   average precision, ROC-AUC when applicable, top-30/top-100 review-budget
+   results, and chronological walk-forward comparisons. Then explore the
+   generated events in **Overview** and **Investigate**.
 
-A fresh deployment does not contain processed events, trained models, or
-case records: these are intentionally excluded from Git. The welcome and
-research pages can load, but analyst views need generated pipeline outputs.
-Do not upload real authentication logs or use the public app for confidential
-case work. Cloud storage should be treated as temporary, and any case data
-entered into an exposed analyst workspace is accessible to its users.
+The base Cloud install intentionally omits the optional PyTorch and SHAP
+packages to keep the hosted demo lighter; the Isolation Forest and first-seen
+baseline remain fully evaluated, and rule-based explanations remain available.
+Their absence is recorded in the evaluation report where relevant.
+
+This benchmark verifies that reviewers can run the pipeline and inspect
+measured results against the synthetic generator's known labels. It does not
+establish accuracy on LANL data or real organizations; the sample is small and
+purpose-built, and its reported metrics must not be presented as real-world
+performance claims. Generated files and SQLite case data are not durable on
+Community Cloud and may disappear when the app restarts. Do not upload real
+authentication logs or use the public app for confidential case work.

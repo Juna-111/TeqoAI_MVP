@@ -146,9 +146,15 @@ def build_explainer(model):
     """Wraps SHAP's TreeExplainer, with a clear failure mode if the
     installed SHAP/sklearn version pairing doesn't support IsolationForest
     directly — the rest of the pipeline still works without it."""
-    import shap
     try:
+        import shap
         return shap.TreeExplainer(model)
+    except ImportError as error:
+        print(
+            f"[warn] SHAP is unavailable ({type(error).__name__}); "
+            "falling back to rule-based reasons."
+        )
+        return None
     except Exception as e:
         print(f"[warn] SHAP TreeExplainer unavailable ({type(e).__name__}: {e}). "
               f"Falling back to rule-based reasons only (see risk_reasons column).")

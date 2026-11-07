@@ -22,6 +22,10 @@ class SyntheticEvaluationWindowTests(unittest.TestCase):
         self.assertTrue(training_labels)
         self.assertTrue(heldout_labels)
         self.assertEqual(len(labels), NUM_COMPROMISED_USERS * 3)
+        self.assertEqual(
+            len(heldout_labels),
+            max(1, NUM_COMPROMISED_USERS // 2) * 3,
+        )
 
 
 if __name__ == "__main__":

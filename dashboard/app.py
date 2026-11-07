@@ -23,6 +23,7 @@ from src.digital_twin import (
     get_attack_paths,
     load_model_artifacts,
 )
+from src.demo_pipeline import run_synthetic_demo
 from src.dataset_paths import (
     CLEAN_FILE,
     DATASET,
@@ -1654,6 +1655,54 @@ PAGE_DESCRIPTIONS = {
 }
 
 
+def render_demo_setup(button_key):
+    if DATASET != "synthetic":
+        st.info(
+            "The hosted evaluation demo uses the synthetic profile. Set "
+            "TEQO_DATASET=synthetic and restart the app to generate it."
+        )
+        return
+    if os.path.exists(CLEAN_FILE) and os.path.exists(RISK_FILE):
+        return
+
+    st.markdown("### Try the reproducible model evaluation")
+    st.markdown(
+        "Generate a small, deterministic synthetic authentication dataset with "
+        "known red-team labels, then run the same chronological model pipeline "
+        "used by the project. Nothing needs to be uploaded."
+    )
+    st.caption(
+        "This is a software demonstration, not evidence of performance on real "
+        "organizations. Generated files and case records on Community Cloud "
+        "are temporary."
+    )
+    if st.button(
+        "Generate demo data and run evaluation",
+        key=button_key,
+        type="primary",
+    ):
+        try:
+            with st.status("Preparing the synthetic evaluation...", expanded=True) as status:
+                run_synthetic_demo(
+                    lambda step: st.write(f"Running `python -m {step}`")
+                )
+                status.update(
+                    label="Synthetic evaluation is ready",
+                    state="complete",
+                    expanded=False,
+                )
+        except (RuntimeError, FileNotFoundError, TimeoutError) as error:
+            st.error("The synthetic evaluation could not be prepared.")
+            st.code(str(error))
+            return
+
+        st.success(
+            "Demo data and evaluation results are ready. Open Research & Evaluation "
+            "to inspect the metrics, then use Overview and Investigate to explore events."
+        )
+        st.rerun()
+
+
 def render_homepage():
     with open(LOGO_FILE, "rb") as logo_file:
         logo_data = base64.b64encode(logo_file.read()).decode("ascii")
@@ -1741,6 +1790,7 @@ def render_homepage():
             label="See project results",
             icon=":material/analytics:",
         )
+        render_demo_setup("teqo-demo-build-home")
 
         st.markdown(
             '<section class="teqo-home-section">'
@@ -1867,6 +1917,7 @@ def render_analyst_page(selected_page):
     if not os.path.exists(CLEAN_FILE) or not os.path.exists(RISK_FILE):
         st.title(PAGE_TITLES[selected_page])
         st.caption(PAGE_DESCRIPTIONS[selected_page])
+        render_demo_setup(f"teqo-demo-build-{selected_page.lower().replace(' ', '-')}")
         if selected_page == "AI Intelligence":
             render_model_intelligence()
         elif selected_page == "Research & Evaluation":

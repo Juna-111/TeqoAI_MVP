@@ -5,7 +5,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None
 
 from src import model
 
@@ -25,6 +28,22 @@ from src.risk_engine import compute_risk
 
 
 class ModelValidationTests(unittest.TestCase):
+    def test_autoencoder_is_optional_when_pytorch_is_unavailable(self):
+        events = pd.DataFrame({"feature": [0.0, 1.0]})
+        original_import = __import__
+
+        def import_without_torch(name, *args, **kwargs):
+            if name == "torch":
+                raise ModuleNotFoundError("PyTorch is not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=import_without_torch):
+            autoencoder, scores, scaler = train_autoencoder(events, events)
+
+        self.assertIsNone(autoencoder)
+        self.assertIsNone(scores)
+        self.assertIsNone(scaler)
+
     def test_future_action_categories_are_not_learned_from_training_rows(self):
         events = pd.DataFrame(
             [
@@ -79,6 +98,7 @@ class ModelValidationTests(unittest.TestCase):
         self.assertEqual(list(aligned.columns), ["kept", "unseen"])
         self.assertEqual(aligned.iloc[0].tolist(), [2, 0])
 
+    @unittest.skipIf(torch is None, "optional PyTorch dependency is not installed")
     def test_autoencoder_training_is_reproducible_and_artifacts_support_batched_scoring(self):
         events = pd.DataFrame(
             {

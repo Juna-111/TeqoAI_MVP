@@ -75,6 +75,31 @@ class PipelineProvenanceTests(unittest.TestCase):
         self.assertTrue(any("run identifier" in issue for issue in issues))
         self.assertTrue(any("Risk scores" in issue for issue in issues))
 
+    def test_unavailable_optional_model_may_omit_alert_budget_metrics(self):
+        report = valid_report()
+        report["evaluation"]["models"]["autoencoder"] = {
+            "status": "not_available"
+        }
+
+        self.assertEqual(
+            validate_pipeline_provenance(
+                report, "synthetic", "input-hash", ["run-123"]
+            ),
+            [],
+        )
+
+    def test_available_model_requires_well_formed_alert_budget_metrics(self):
+        report = valid_report()
+        report["evaluation"]["models"]["isolation_forest"] = {
+            "status": "evaluated"
+        }
+
+        issues = validate_pipeline_provenance(
+            report, "synthetic", "input-hash", ["run-123"]
+        )
+
+        self.assertTrue(any("isolation_forest" in issue for issue in issues))
+
     def test_outdated_pipeline_schema_requires_rerunning_model_pipeline(self):
         report = valid_report()
         report["schema_version"] = 2
