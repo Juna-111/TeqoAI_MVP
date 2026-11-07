@@ -22,7 +22,7 @@ teqoai/
 │   ├── evaluation.py          ← held-out ranking metrics and label coverage
 │   ├── provenance.py          ← dataset/run consistency checks
 │   ├── risk_engine.py         ← transparent rule-assisted risk score
-│   ├── digital_twin.py        ← successful-auth relationship graph and paths
+│   ├── digital_twin.py        ← observed paths and exact Shapley explanations
 │   ├── dataset_paths.py       ← synthetic/LANL output isolation
 │   ├── demo_pipeline.py       ← on-demand synthetic demo for hosted reviewers
 │   └── case_store.py          ← local analyst case records
@@ -43,8 +43,9 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-The base install runs the Isolation Forest evaluation. To also compare the
-optional PyTorch autoencoder and SHAP explanations locally, install:
+The base install runs the Isolation Forest evaluation and exact per-event
+interventional Shapley explanations. To also compare the optional PyTorch
+autoencoder locally, install:
 
 ```bash
 pip install -r requirements-optional.txt
@@ -338,10 +339,11 @@ the `src` package resolves when Streamlit Cloud launches
    results, and chronological walk-forward comparisons. Then explore the
    generated events in **Overview** and **Investigate**.
 
-The base Cloud install intentionally omits the optional PyTorch and SHAP
-packages to keep the hosted demo lighter; the Isolation Forest and first-seen
-baseline remain fully evaluated, and rule-based explanations remain available.
-Their absence is recorded in the evaluation report where relevant.
+The base Cloud install intentionally omits the optional PyTorch package to keep
+the hosted demo lighter; the Isolation Forest and first-seen baseline remain
+fully evaluated. Per-event Shapley explanations use exact coalition enumeration
+for this model's anomaly-score output and do not require the separate SHAP
+package.
 
 This benchmark verifies that reviewers can run the pipeline and inspect
 measured results against the synthetic generator's known labels. It does not

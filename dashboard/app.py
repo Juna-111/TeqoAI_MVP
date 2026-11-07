@@ -17,7 +17,6 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from src.digital_twin import (
-    build_explainer,
     build_graph,
     explain_event,
     get_attack_paths,
@@ -592,9 +591,83 @@ def load_analysis_resources(clean):
     return X, model, scaler
 
 
-@st.cache_resource
-def load_explainer(_model):
-    return build_explainer(_model)
+def render_shap_explanation(explanation):
+    st.markdown("#### Exact Shapley decomposition")
+    st.caption(
+        "Output: Isolation Forest anomaly score (negative decision_function); "
+        "higher scores indicate more anomalous events."
+    )
+    base_column, prediction_column, drift_column = st.columns(3)
+    base_column.metric(
+        "Expected value (training background)",
+        f"{explanation['base_value']:.6f}",
+    )
+    prediction_column.metric(
+        "Event prediction", f"{explanation['prediction']:.6f}"
+    )
+    drift_column.metric(
+        "Feature-attributed drift",
+        f"{explanation['drift']:+.6f}",
+        help="Prediction minus expected value. Signed feature Shapley values sum to this drift.",
+    )
+    st.caption(
+        f"{explanation['method']} Background: "
+        f"{explanation['background']['rows_used']} of "
+        f"{explanation['background']['available_training_rows']} training-period "
+        f"events. Additivity residual: "
+        f"{explanation['additivity_error']:.3g}."
+    )
+
+    positive_column, negative_column = st.columns(2)
+    for column, heading, key in (
+        (positive_column, "Positive drivers · increase anomaly score", "positive_drivers"),
+        (negative_column, "Negative drivers · decrease anomaly score", "negative_drivers"),
+    ):
+        with column:
+            st.markdown(f"**{heading}**")
+            drivers = explanation[key]
+            if drivers:
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "Feature": item["label"],
+                                "Event value": item["value"],
+                                "Shapley contribution": item["shap_value"],
+                            }
+                            for item in drivers
+                        ]
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                )
+            else:
+                st.caption("No contributions in this direction.")
+
+    st.markdown("**Largest pairwise interactions**")
+    interactions = explanation["interactions"][:10]
+    if interactions:
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Feature pair": f"{item['feature_a']} × {item['feature_b']}",
+                        "Interaction contribution": item["contribution"],
+                    }
+                    for item in interactions
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.caption("No pairwise interaction contributions were measured.")
+    st.caption(explanation["interaction_convention"])
+    st.caption(explanation["dependence_note"])
+    st.caption(
+        "Attributions describe this model output relative to the selected training "
+        "background; they are not causal effects or probabilities."
+    )
 
 
 def recommend_action(row):
@@ -854,7 +927,7 @@ def render_overview(data, queue, cases):
         )
 
 
-def render_investigation(queue, data, graph, cases):
+def render_investigation(queue, data, graph, cases, clean_events):
     st.subheader("Case investigation")
     if queue.empty:
         st.info("No alerts match this queue view. Change the status or risk filters.")
@@ -912,23 +985,28 @@ def render_investigation(queue, data, graph, cases):
         if st.button("Generate SHAP explanation", key=f"shap-{event_id}"):
             try:
                 X, model, scaler = load_analysis_resources(clean_events)
-                explainer = load_explainer(model)
-                if explainer is None:
-                    st.warning("SHAP is unavailable for this model; review the evidence above.")
-                else:
-                    event_position = int(
-                        queue.loc[queue["_event_id"] == selected_event_id].index[0]
-                    )
-                    explanation = explain_event(
-                        explainer, scaler, X, X.columns.tolist(),
-                        int(row.name) if isinstance(row.name, int) else event_position,
-                    )
-                    st.success(explanation)
-            except (IndexError, KeyError, ValueError, RuntimeError):
-                st.warning(
-                    "The explanation could not be generated for this alert. "
-                    "Review the detection evidence above or try another alert."
+                training_rows = (
+                    data["evaluation_split"].eq("train")
+                    if "evaluation_split" in data
+                    else pd.Series(True, index=data.index)
                 )
+                explanation = explain_event(
+                    model,
+                    scaler,
+                    X,
+                    int(row.name),
+                    X.loc[training_rows],
+                )
+                render_shap_explanation(explanation)
+            except (
+                ArithmeticError,
+                IndexError,
+                KeyError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as error:
+                st.error(f"The Shapley explanation could not be generated: {error}")
 
     timeline, twin = st.columns([1.2, 1])
     with timeline:
@@ -1452,8 +1530,8 @@ def render_model_intelligence():
         "A transparent risk layer adds independently checkable factors—new "
         "destination, sensitive asset, failed authentication, and burst activity—"
         "to the normalized anomaly percentile. The analyst view shows those "
-        "reasons and, when the optional SHAP explainer is available, feature "
-        "contributions. Neither step automates a response."
+        "reasons and exact interventional Shapley contributions for the "
+        "Isolation Forest anomaly score. Neither step automates a response."
     )
     render_process_diagram(
         "From event to human review",
@@ -2013,7 +2091,9 @@ def render_analyst_page(selected_page):
     elif selected_page == "Investigate":
         try:
             graph = load_graph(clean_events)
-            render_investigation(filtered_events, risk_events, graph, case_records)
+            render_investigation(
+                filtered_events, risk_events, graph, case_records, clean_events
+            )
         except (KeyError, ValueError, sqlite3.Error):
             st.error(
                 "The alert investigation could not be prepared. Refresh the demo "

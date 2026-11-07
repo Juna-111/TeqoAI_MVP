@@ -24,6 +24,7 @@ The dashboard (Step 5) imports build_graph(), get_attack_paths(), and
 explain_event() directly from this file rather than duplicating logic.
 """
 
+import json
 import os
 import joblib
 import pandas as pd
@@ -142,25 +143,6 @@ def load_model_artifacts():
     return model, scaler
 
 
-def build_explainer(model):
-    """Wraps SHAP's TreeExplainer, with a clear failure mode if the
-    installed SHAP/sklearn version pairing doesn't support IsolationForest
-    directly — the rest of the pipeline still works without it."""
-    try:
-        import shap
-        return shap.TreeExplainer(model)
-    except ImportError as error:
-        print(
-            f"[warn] SHAP is unavailable ({type(error).__name__}); "
-            "falling back to rule-based reasons."
-        )
-        return None
-    except Exception as e:
-        print(f"[warn] SHAP TreeExplainer unavailable ({type(e).__name__}: {e}). "
-              f"Falling back to rule-based reasons only (see risk_reasons column).")
-        return None
-
-
 def format_feature_name(name):
     """Translate encoded model columns into concise analyst-facing labels."""
     labels = {
@@ -177,40 +159,223 @@ def format_feature_name(name):
     return name.replace("_", " ")
 
 
-def explain_event(explainer, scaler, X, feature_names, row_index, top_n=3):
-    """Return a short, human-readable explanation for one event's score,
-    naming the top contributing features and their direction."""
-    if explainer is None:
-        return "SHAP explainer unavailable — see risk_reasons for a rule-based justification."
+def explain_event(
+    model,
+    scaler,
+    features,
+    row_index,
+    background,
+    max_background=128,
+    max_features=12,
+):
+    """Compute exact interventional Shapley values for TeqoAI's anomaly score."""
+    import math
 
-    X_scaled = scaler.transform(X.iloc[[row_index]])
-    shap_values = explainer.shap_values(X_scaled)
+    import numpy as np
 
-    # shap_values shape can vary by SHAP version; normalize to 1D array
-    values = shap_values[0] if hasattr(shap_values, "__len__") and len(shap_values) == 1 else shap_values
-    values = values.flatten()
+    if not isinstance(features, pd.DataFrame) or not isinstance(background, pd.DataFrame):
+        raise TypeError("features and background must be pandas DataFrames.")
+    if features.empty or background.empty:
+        raise ValueError("features and background must contain at least one row.")
+    if not features.columns.is_unique or not background.columns.is_unique:
+        raise ValueError("Feature and background column names must be unique.")
+    if list(features.columns) != list(background.columns):
+        raise ValueError("Background columns must match feature columns in order.")
+    if (
+        not isinstance(row_index, (int, np.integer))
+        or isinstance(row_index, (bool, np.bool_))
+        or row_index not in features.index
+    ):
+        raise ValueError("row_index must identify a row in features.")
+    if (
+        not isinstance(max_background, (int, np.integer))
+        or isinstance(max_background, (bool, np.bool_))
+        or max_background < 1
+    ):
+        raise ValueError("max_background must be a positive integer.")
 
-    # SHAP explains the model's raw decision_function, where HIGHER = more
-    # normal. Our anomaly_score is the negated version (HIGHER = more
-    # anomalous), so we flip the sign here to keep the wording consistent
-    # with the anomaly_score everyone actually looks at.
-    contributions = list(zip(feature_names, -values))
-    contributions.sort(key=lambda c: abs(c[1]), reverse=True)
+    grouped_columns = {}
+    grouped_labels = {}
+    for column_index, column_name in enumerate(features.columns):
+        if column_name.startswith("auth_"):
+            group_key, group_label = "authentication_method", "Authentication method"
+        elif column_name.startswith("logon_"):
+            group_key, group_label = "logon_category", "Logon category"
+        else:
+            group_key = column_name
+            group_label = format_feature_name(column_name)
+        grouped_columns.setdefault(group_key, []).append(column_index)
+        grouped_labels[group_key] = group_label
 
-    parts = []
-    for name, value in contributions[:top_n]:
-        direction = "increased" if value > 0 else "decreased"
-        parts.append(f"{format_feature_name(name)} {direction} the anomaly ranking")
+    group_keys = list(grouped_columns)
+    feature_count = len(group_keys)
+    if feature_count > max_features:
+        raise ValueError(
+            f"Exact Shapley enumeration supports at most {max_features} semantic "
+            f"features; received {feature_count}."
+        )
 
-    return "; ".join(parts)
+    try:
+        feature_values = features.to_numpy(dtype=float)
+        background_values = background.to_numpy(dtype=float)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Model features and background values must be numeric.") from error
+    if not np.isfinite(feature_values).all() or not np.isfinite(background_values).all():
+        raise ValueError("Model features and background values must be finite.")
+
+    sample_count = min(len(background_values), int(max_background))
+    sample_positions = np.linspace(
+        0, len(background_values) - 1, num=sample_count, dtype=int
+    )
+    target_values = features.loc[[row_index]].to_numpy(dtype=float)
+    scaled_target = scaler.transform(
+        pd.DataFrame(target_values, columns=features.columns)
+    )
+    scaled_background = scaler.transform(
+        pd.DataFrame(background_values[sample_positions], columns=features.columns)
+    )
+
+    def anomaly_scores(matrix):
+        scores = -np.asarray(model.decision_function(matrix), dtype=float).reshape(-1)
+        if not np.isfinite(scores).all():
+            raise ValueError("Isolation Forest returned non-finite decision scores.")
+        return scores
+
+    coalition_count = 1 << feature_count
+    coalition_values = np.empty(coalition_count, dtype=float)
+    for coalition in range(coalition_count):
+        masked_background = scaled_background.copy()
+        for feature_index, group_key in enumerate(group_keys):
+            if coalition & (1 << feature_index):
+                feature_columns = grouped_columns[group_key]
+                masked_background[:, feature_columns] = scaled_target[
+                    0, feature_columns
+                ]
+        coalition_values[coalition] = anomaly_scores(masked_background).mean()
+
+    factorials = [math.factorial(value) for value in range(feature_count + 1)]
+    shap_values = np.zeros(feature_count, dtype=float)
+    interactions = np.zeros((feature_count, feature_count), dtype=float)
+    for feature_index in range(feature_count):
+        feature_bit = 1 << feature_index
+        for coalition in range(coalition_count):
+            if coalition & feature_bit:
+                continue
+            size = coalition.bit_count()
+            weight = (
+                factorials[size]
+                * factorials[feature_count - size - 1]
+                / factorials[feature_count]
+            )
+            shap_values[feature_index] += weight * (
+                coalition_values[coalition | feature_bit] - coalition_values[coalition]
+            )
+
+    for first in range(feature_count):
+        first_bit = 1 << first
+        for second in range(first + 1, feature_count):
+            second_bit = 1 << second
+            pair_value = 0.0
+            for coalition in range(coalition_count):
+                if coalition & (first_bit | second_bit):
+                    continue
+                size = coalition.bit_count()
+                weight = (
+                    factorials[size]
+                    * factorials[feature_count - size - 2]
+                    / (2 * factorials[feature_count - 1])
+                )
+                pair_value += weight * (
+                    coalition_values[coalition | first_bit | second_bit]
+                    - coalition_values[coalition | first_bit]
+                    - coalition_values[coalition | second_bit]
+                    + coalition_values[coalition]
+                )
+            interactions[first, second] = pair_value
+            interactions[second, first] = pair_value
+    np.fill_diagonal(interactions, shap_values - interactions.sum(axis=1))
+
+    base_value = float(coalition_values[0])
+    prediction = float(anomaly_scores(scaled_target)[0])
+    additivity_error = float(base_value + shap_values.sum() - prediction)
+    if not np.isclose(base_value + shap_values.sum(), prediction, rtol=1e-9, atol=1e-10):
+        raise ArithmeticError("Shapley values failed the anomaly-score additivity check.")
+    if not np.allclose(interactions.sum(axis=1), shap_values, rtol=1e-9, atol=1e-10):
+        raise ArithmeticError("Shapley interaction values do not sum to feature values.")
+
+    feature_rows = []
+    for index, group_key in enumerate(group_keys):
+        columns = grouped_columns[group_key]
+        encoded_names = [features.columns[column] for column in columns]
+        if group_key in {"authentication_method", "logon_category"}:
+            active = [
+                name.split("_", 1)[1]
+                for name, column in zip(encoded_names, columns)
+                if target_values[0, column] >= 0.5
+            ]
+            value = ", ".join(active) if active else "Other / unknown category"
+        else:
+            value = float(target_values[0, columns[0]])
+        feature_rows.append({
+            "feature": group_key,
+            "label": grouped_labels[group_key],
+            "encoded_features": encoded_names,
+            "value": value,
+            "shap_value": float(shap_values[index]),
+        })
+    feature_rows.sort(key=lambda item: abs(item["shap_value"]), reverse=True)
+    pair_rows = []
+    for first in range(feature_count):
+        for second in range(first + 1, feature_count):
+            contribution = float(2 * interactions[first, second])
+            if abs(contribution) > 1e-12:
+                pair_rows.append({
+                    "feature_a": grouped_labels[group_keys[first]],
+                    "feature_b": grouped_labels[group_keys[second]],
+                    "contribution": contribution,
+                })
+    pair_rows.sort(key=lambda item: abs(item["contribution"]), reverse=True)
+
+    return {
+        "output": "Isolation Forest anomaly score (-decision_function)",
+        "output_semantics": "Higher values indicate more anomalous events.",
+        "method": (
+            "Exact interventional Shapley values with exhaustive semantic-feature "
+            "coalition enumeration; one-hot categories are grouped to preserve "
+            "valid category states."
+        ),
+        "background": {
+            "reference": "Training-period rows only, selected at evenly spaced positions.",
+            "rows_used": int(sample_count),
+            "available_training_rows": int(len(background_values)),
+        },
+        "base_value": base_value,
+        "prediction": prediction,
+        "drift": float(prediction - base_value),
+        "shap_sum": float(shap_values.sum()),
+        "additivity_error": additivity_error,
+        "features": feature_rows,
+        "positive_drivers": [item for item in feature_rows if item["shap_value"] > 0],
+        "negative_drivers": [item for item in feature_rows if item["shap_value"] < 0],
+        "interactions": pair_rows,
+        "interaction_convention": (
+            "Each unique pair is twice its symmetric off-diagonal interaction "
+            "value. Interaction values are descriptive and must not be added "
+            "again to the main-effect Shapley sum."
+        ),
+        "dependence_note": (
+            "Authentication-method and logon-category one-hot columns are grouped "
+            "as single features to avoid invalid multi-category states."
+        ),
+    }
 
 
 # ---- Demo / self-test --------------------------------------------------------
 
 def main():
-    print("[info] loading cleaned events and rebuilding features for SHAP alignment...")
+    print("[info] loading cleaned events and rebuilding model features...")
     df_clean = pd.read_csv(CLEAN_FILE)
-    X, df_features = build_features(df_clean)
+    X, _ = build_features(df_clean)
 
     print("[info] loading risk-scored events...")
     df_risk = pd.read_csv(RISK_FILE)
@@ -219,11 +384,9 @@ def main():
     G = build_graph(df_clean)
     print(f"[info] graph built: {G.number_of_nodes()} assets, {G.number_of_edges()} relationships")
 
-    print("[info] loading model + building SHAP explainer...")
+    print("[info] loading Isolation Forest for exact Shapley explanation...")
     model, scaler = load_model_artifacts()
     X = align_features(X, scaler.feature_names_in_)
-    explainer = build_explainer(model)
-    feature_names = X.columns.tolist()
 
     # Pick one known-malicious event (if any) to demo attack path + explanation
     malicious = df_risk[df_risk["is_malicious"] == 1].sort_values("risk_score", ascending=False)
@@ -244,19 +407,16 @@ def main():
               f"{p['max_asset_criticality']}) in {p['hops']} hop(s): "
               f"{' -> '.join(p['path'])}")
 
-    # Find the matching row in df_features for SHAP (align by user/time/target_device)
-    match = df_features[
-        (df_features["user"] == demo_row["user"])
-        & (df_features["time"] == demo_row["time"])
-        & (df_features["target_device"] == demo_row["target_device"])
-    ]
-    if not match.empty:
-        row_index = match.index[0]
-        explanation = explain_event(explainer, scaler, X, feature_names, row_index)
-        print(f"\n[demo] SHAP explanation: {explanation}")
-    else:
-        print("\n[demo] Could not align this event for SHAP explanation "
-              "(unexpected — check that clean/risk files are from the same run).")
+    training_rows = (
+        df_risk["evaluation_split"].eq("train")
+        if "evaluation_split" in df_risk
+        else pd.Series(True, index=df_risk.index)
+    )
+    explanation = explain_event(
+        model, scaler, X, int(demo_row.name), X.loc[training_rows]
+    )
+    print("\n[demo] Exact Shapley breakdown:")
+    print(json.dumps(explanation, indent=2, ensure_ascii=True))
 
     print(f"\n[demo] Rule-based reason (from risk_engine.py): {demo_row['risk_reasons']}")
 
