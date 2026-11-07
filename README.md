@@ -301,9 +301,30 @@ case CSV export contains analyst notes. Treat both as sensitive; the CSV export
 escapes formula-like text for spreadsheet safety but does not encrypt or redact
 the data.
 
-Do not deploy this version publicly or use it for production monitoring.
-Before hosting, add and review authentication and authorization, HTTPS,
-protected persistent storage, data retention and backup controls, managed
-secret provisioning, and an operational dependency-update process. Reassess
-privacy and data-owner approval for every dataset. These controls are not
-implemented by the local MVP.
+Do not deploy this version with real organizational data or use it for
+production monitoring. It has no user authentication or authorization. Before
+making analyst functionality available with anything other than public demo
+content, add and review authentication and authorization, HTTPS, protected
+persistent storage, data retention and backup controls, managed secret
+provisioning, and an operational dependency-update process. Reassess privacy
+and data-owner approval for every dataset. These controls are not implemented
+by the MVP.
+
+### Streamlit Community Cloud (public demo only)
+
+The dashboard entry point adds the repository root to Python's import path, so
+the `src` package resolves when Streamlit Cloud launches
+`dashboard/app.py` directly. To publish the informational demo:
+
+1. In Streamlit Community Cloud, select **Create app**.
+2. Choose repository `Juna-111/TeqoAI_MVP`, branch `main`, and main file path
+   `dashboard/app.py`.
+3. Deploy. Cloud installs the root `requirements.txt` and reads the theme from
+   `.streamlit/config.toml`.
+
+A fresh deployment does not contain processed events, trained models, or
+case records: these are intentionally excluded from Git. The welcome and
+research pages can load, but analyst views need generated pipeline outputs.
+Do not upload real authentication logs or use the public app for confidential
+case work. Cloud storage should be treated as temporary, and any case data
+entered into an exposed analyst workspace is accessible to its users.
