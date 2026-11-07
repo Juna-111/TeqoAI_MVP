@@ -1,0 +1,805 @@
+/* Reusable TeqoAI presentation components */
+
+.teqo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border: 1px solid var(--teqo-border);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.06);
+    color: var(--teqo-muted);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.teqo-badge-row {
+    margin-bottom: 0.5rem;
+}
+
+.teqo-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.teqo-badge[data-tone="info"] {
+    border-color: rgba(54, 185, 214, 0.34);
+    background: rgba(54, 185, 214, 0.09);
+    color: #8FD8E8;
+}
+
+.teqo-badge[data-tone="warning"] {
+    border-color: rgba(242, 169, 59, 0.36);
+    background: rgba(242, 169, 59, 0.09);
+    color: #F6C477;
+}
+
+.teqo-badge[data-tone="critical"] {
+    border-color: rgba(240, 68, 82, 0.36);
+    background: rgba(240, 68, 82, 0.09);
+    color: #FF97A0;
+}
+
+.teqo-badge[data-tone="success"] {
+    border-color: rgba(50, 183, 131, 0.36);
+    background: rgba(50, 183, 131, 0.09);
+    color: #7FDCB5;
+}
+
+.teqo-badge[data-tone="accent"] {
+    border-color: rgba(84, 119, 245, 0.36);
+    background: rgba(84, 119, 245, 0.1);
+    color: #A8B9FF;
+}
+
+/* Metric cards */
+
+.teqo-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+    gap: 0.7rem;
+    margin: 0 0 1.2rem;
+}
+
+.teqo-metric {
+    position: relative;
+    overflow: hidden;
+    padding: 0.95rem 1rem 0.85rem;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background: linear-gradient(160deg, var(--teqo-surface-2), var(--teqo-surface) 74%);
+}
+
+.teqo-metric::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--teqo-accent);
+    opacity: 0.85;
+}
+
+.teqo-metric[data-tone="critical"]::after {
+    background: var(--teqo-critical);
+}
+
+.teqo-metric[data-tone="warning"]::after {
+    background: var(--teqo-warning);
+}
+
+.teqo-metric[data-tone="success"]::after {
+    background: var(--teqo-success);
+}
+
+.teqo-metric[data-tone="blue"]::after {
+    background: var(--teqo-blue);
+}
+
+.teqo-metric-label {
+    color: var(--teqo-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.teqo-metric-value {
+    margin: 0.3rem 0 0.1rem;
+    color: var(--teqo-text);
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+}
+
+.teqo-metric[data-size="compact"] .teqo-metric-value {
+    font-size: 1.12rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.teqo-metric-hint {
+    color: var(--teqo-faint);
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
+/* Panels and callouts */
+
+.teqo-panel {
+    height: 100%;
+    padding: 15px 17px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background: var(--teqo-surface);
+}
+
+.teqo-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.7rem;
+}
+
+.teqo-panel-title {
+    margin: 0;
+    color: var(--teqo-text);
+    font-size: 0.9rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.teqo-panel-meta {
+    color: var(--teqo-faint);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.teqo-panel-note {
+    margin: 0.8rem 0 0;
+    color: var(--teqo-faint);
+    font-size: 0.72rem;
+    line-height: 1.55;
+}
+
+.teqo-callout {
+    margin: 0.8rem 0;
+    padding: 12px 15px;
+    border: 1px solid var(--teqo-border-soft);
+    border-left: 3px solid var(--teqo-accent);
+    border-radius: 10px;
+    background: rgba(54, 185, 214, 0.055);
+}
+
+.teqo-callout[data-tone="warning"] {
+    border-left-color: var(--teqo-warning);
+    background: rgba(242, 169, 59, 0.06);
+}
+
+.teqo-callout[data-tone="critical"] {
+    border-left-color: var(--teqo-critical);
+    background: rgba(240, 68, 82, 0.06);
+}
+
+.teqo-callout[data-tone="success"] {
+    border-left-color: var(--teqo-success);
+    background: rgba(50, 183, 131, 0.06);
+}
+
+.teqo-callout-title {
+    margin-bottom: 3px;
+    color: var(--teqo-text);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teqo-callout p {
+    margin: 0;
+    color: var(--teqo-text-2);
+    font-size: 0.84rem;
+    line-height: 1.6;
+}
+
+.teqo-callout code {
+    color: #9FE0EE;
+    font-family: var(--teqo-mono);
+    font-size: 0.78rem;
+}
+
+/* Key/value lists */
+
+.teqo-kv-list {
+    display: grid;
+    margin: 0;
+}
+
+.teqo-kv-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--teqo-border-soft);
+    color: var(--teqo-muted);
+    font-size: 0.8rem;
+}
+
+.teqo-kv-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.teqo-kv-row strong {
+    color: var(--teqo-text);
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.teqo-kv-grid {
+    display: grid;
+    margin: 0;
+}
+
+.teqo-kv {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--teqo-border-soft);
+}
+
+.teqo-kv:last-child {
+    border-bottom: 0;
+}
+
+.teqo-kv dt {
+    color: var(--teqo-faint);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.teqo-kv dd {
+    margin: 0;
+    color: var(--teqo-text);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.teqo-mono {
+    font-family: var(--teqo-mono);
+    font-size: 0.78rem;
+    color: #9FE0EE;
+}
+
+/* Risk distribution */
+
+.teqo-risk-row {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr) 52px;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 10px 0;
+    color: var(--teqo-muted);
+    font-size: 0.78rem;
+}
+
+.teqo-risk-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.teqo-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--teqo-faint);
+}
+
+.teqo-dot[data-tone="critical"] {
+    background: var(--teqo-critical);
+}
+
+.teqo-dot[data-tone="warning"] {
+    background: var(--teqo-warning);
+}
+
+.teqo-dot[data-tone="success"] {
+    background: var(--teqo-success);
+}
+
+.teqo-dot[data-tone="info"] {
+    background: var(--teqo-accent);
+}
+
+.teqo-risk-track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: #1A2A40;
+}
+
+.teqo-risk-fill {
+    height: 100%;
+    border-radius: inherit;
+}
+
+.teqo-risk-row strong {
+    color: var(--teqo-text);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* Factors */
+
+.teqo-factor-grid {
+    display: grid;
+    gap: 7px;
+}
+
+.teqo-factor {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 8px 10px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 9px;
+    background: rgba(8, 13, 24, 0.32);
+    color: var(--teqo-muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.teqo-factor[data-active="true"] {
+    border-color: rgba(242, 169, 59, 0.32);
+    background: rgba(242, 169, 59, 0.06);
+    color: var(--teqo-text-2);
+}
+
+.teqo-factor-icon {
+    display: grid;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    place-items: center;
+    margin-top: 1px;
+    border: 1px solid var(--teqo-border);
+    border-radius: 50%;
+    color: var(--teqo-faint);
+    font-size: 0.62rem;
+    font-weight: 750;
+}
+
+.teqo-factor[data-active="true"] .teqo-factor-icon {
+    border-color: var(--teqo-warning);
+    color: var(--teqo-warning);
+}
+
+.teqo-factor-state {
+    margin-left: auto;
+    padding-left: 8px;
+    color: var(--teqo-faint);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.teqo-factor[data-active="true"] .teqo-factor-state {
+    color: var(--teqo-warning);
+}
+
+/* Feature cards */
+
+.teqo-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 235px), 1fr));
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+}
+
+.teqo-feature {
+    padding: 17px 17px 15px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background: linear-gradient(155deg, rgba(22, 35, 56, 0.9), rgba(16, 26, 42, 0.9));
+}
+
+.teqo-feature-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    margin-bottom: 0.8rem;
+    border-radius: 9px;
+    background: var(--teqo-accent-soft);
+    color: var(--teqo-accent);
+}
+
+.teqo-feature h3 {
+    margin: 0 0 0.3rem;
+    color: var(--teqo-text);
+    font-size: 0.94rem;
+    font-weight: 650;
+}
+
+.teqo-feature p {
+    margin: 0;
+    color: var(--teqo-muted);
+    font-size: 0.81rem;
+    line-height: 1.6;
+}
+
+/* Process steps */
+
+.teqo-process {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr));
+    gap: 0.65rem;
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: teqo-step;
+}
+
+.teqo-process li {
+    position: relative;
+    min-width: 0;
+    padding: 14px 14px 13px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 10px;
+    background: var(--teqo-surface);
+}
+
+.teqo-process li::before {
+    counter-increment: teqo-step;
+    content: counter(teqo-step, decimal-leading-zero);
+    display: block;
+    margin-bottom: 7px;
+    color: var(--teqo-accent);
+    font-family: var(--teqo-mono);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.teqo-process strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--teqo-text);
+    font-size: 0.84rem;
+    font-weight: 650;
+}
+
+.teqo-process span {
+    color: var(--teqo-muted);
+    font-size: 0.76rem;
+    line-height: 1.55;
+}
+
+/* Contribution / information cards */
+
+.teqo-contribution-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.8rem;
+}
+
+.teqo-contribution {
+    height: 100%;
+    padding: 14px 15px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 11px;
+    background: var(--teqo-surface);
+}
+
+.teqo-contribution strong {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--teqo-text);
+    font-size: 0.85rem;
+    font-weight: 650;
+}
+
+.teqo-contribution p {
+    margin: 0;
+    color: var(--teqo-muted);
+    font-size: 0.79rem;
+    line-height: 1.6;
+}
+
+.teqo-contribution small {
+    display: inline-block;
+    margin-top: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(84, 119, 245, 0.1);
+    color: #A8B9FF;
+    font-family: var(--teqo-mono);
+    font-size: 0.66rem;
+}
+
+/* Empty state */
+
+.teqo-empty {
+    padding: 26px 20px;
+    border: 1px dashed var(--teqo-border);
+    border-radius: var(--teqo-radius);
+    background: rgba(16, 26, 42, 0.45);
+    text-align: center;
+}
+
+.teqo-empty strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--teqo-text);
+    font-size: 0.92rem;
+}
+
+.teqo-empty p {
+    max-width: 540px;
+    margin: 0 auto;
+    color: var(--teqo-muted);
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+/* Graph */
+
+.teqo-graph-shell {
+    border: 1px solid rgba(54, 185, 214, 0.2);
+    border-radius: var(--teqo-radius);
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(15, 54, 79, 0.5), transparent 70%),
+        var(--teqo-bg);
+    box-shadow: var(--teqo-shadow), inset 0 0 40px rgba(54, 185, 214, 0.035);
+}
+
+.teqo-graph-shell svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.teqo-graph-edge {
+    stroke-dasharray: 8 10;
+    animation: teqo-flow 3.4s linear infinite;
+}
+
+.teqo-graph-node {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.teqo-graph-node.source,
+.teqo-graph-node.critical {
+    animation: teqo-pulse 3s ease-in-out infinite;
+}
+
+@keyframes teqo-flow {
+    to {
+        stroke-dashoffset: -72;
+    }
+}
+
+@keyframes teqo-pulse {
+    0%,
+    100% {
+        opacity: 0.84;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.teqo-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.3rem;
+    margin: 0.7rem 0 0.2rem;
+    color: var(--teqo-muted);
+    font-size: 0.76rem;
+}
+
+.teqo-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.teqo-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--teqo-faint);
+}
+
+.teqo-legend i[data-tone="info"] {
+    background: var(--teqo-accent);
+}
+
+.teqo-legend i[data-tone="warning"] {
+    background: var(--teqo-warning);
+}
+
+.teqo-legend i[data-tone="muted"] {
+    background: #31516A;
+}
+
+.teqo-legend i.line {
+    width: 20px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--teqo-accent);
+}
+
+/* Small helpers */
+
+.teqo-toolbar-note {
+    margin: 0.2rem 0 0.8rem;
+    color: var(--teqo-muted);
+    font-size: 0.8rem;
+    line-height: 1.55;
+}
+
+.teqo-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+
+.teqo-table-caption {
+    margin: 0.55rem 0 0;
+    color: var(--teqo-faint);
+    font-size: 0.72rem;
+    line-height: 1.5;
+}
+
+.teqo-question {
+    margin: 0.35rem 0 0;
+    color: var(--teqo-text-2);
+    font-size: 0.94rem;
+    line-height: 1.65;
+}
+
+.teqo-limitations {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.teqo-limitations li {
+    position: relative;
+    padding: 9px 12px 9px 30px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 9px;
+    background: var(--teqo-surface);
+    color: var(--teqo-muted);
+    font-size: 0.81rem;
+    line-height: 1.55;
+}
+
+.teqo-limitations li::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 15px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teqo-warning);
+}
+
+.teqo-provenance {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+    gap: 0.6rem;
+    margin-top: 0.7rem;
+}
+
+.teqo-provenance div {
+    padding: 9px 11px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 8px;
+    background: rgba(8, 13, 24, 0.32);
+}
+
+.teqo-provenance span {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--teqo-faint);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.teqo-provenance code {
+    color: var(--teqo-text-2);
+    font-family: var(--teqo-mono);
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+}
+
+/* Native markdown headings inside sections */
+
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h4 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 650;
+}
+
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h3 {
+    margin-top: 1.6rem;
+    margin-bottom: 0.55rem;
+    font-size: 1.12rem;
+    font-weight: 650;
+}
+
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] ul {
+    color: var(--teqo-text-2);
+    font-size: 0.86rem;
+    line-height: 1.65;
+}
+
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] code {
+    color: #9FE0EE;
+    background: rgba(54, 185, 214, 0.08);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-family: var(--teqo-mono);
+    font-size: 0.8em;
+}
+
+/* Component headings keep their own scale inside the generic markdown rules. */
+
+[data-testid="stMain"] .teqo-feature.teqo-feature h3 {
+    margin: 0 0 0.3rem;
+    font-size: 0.94rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+[data-testid="stMain"] .teqo-panel .teqo-panel-title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+[data-testid="stMain"] .teqo-demo-panel.teqo-demo-panel h3 {
+    margin: 0.3rem 0 0.35rem;
+    font-size: 0.98rem;
+    font-weight: 650;
+}
+
+[data-testid="stMain"] .teqo-about-strip .teqo-about-note strong {
+    margin-bottom: 5px;
+}

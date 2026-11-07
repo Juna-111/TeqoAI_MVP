@@ -1,0 +1,245 @@
+/* Responsive layout and reduced-motion behavior */
+
+@media (max-width: 1100px) {
+    .teqo-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .teqo-home-hero {
+        grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.6fr);
+        gap: 2rem;
+    }
+
+    .teqo-emblem {
+        width: min(100%, 280px);
+    }
+
+    .teqo-risk-row {
+        grid-template-columns: 108px minmax(0, 1fr) 46px;
+    }
+}
+
+@media (max-width: 980px) {
+    .teqo-home-hero {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .teqo-home-emblem {
+        justify-content: flex-start;
+    }
+
+    .teqo-emblem {
+        width: min(52vw, 230px);
+    }
+
+    .teqo-about-strip {
+        grid-template-columns: 1fr;
+        gap: 1.2rem;
+    }
+
+    .teqo-page-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    .teqo-page-head-meta {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .teqo-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .stMainBlockContainer {
+        padding: 3.9rem 0.9rem 2rem;
+    }
+
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap;
+        gap: 0.7rem;
+    }
+
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        min-width: min(100%, 250px);
+        flex: 1 1 250px;
+    }
+
+    .teqo-page-head {
+        margin-bottom: 1.1rem;
+        padding-bottom: 0.9rem;
+    }
+
+    .teqo-page-head h1 {
+        font-size: 1.5rem;
+    }
+
+    .teqo-home-hero {
+        padding-top: 0.5rem;
+    }
+
+    .teqo-home-title {
+        font-size: clamp(2rem, 9vw, 2.7rem);
+    }
+
+    .teqo-home-lead {
+        font-size: 0.96rem;
+    }
+
+    .teqo-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .teqo-metric-value {
+        font-size: 1.45rem;
+    }
+
+    .teqo-risk-row {
+        grid-template-columns: 100px minmax(0, 1fr) 42px;
+        gap: 0.5rem;
+    }
+
+    .teqo-kv {
+        grid-template-columns: 90px minmax(0, 1fr);
+    }
+
+    .teqo-contribution-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .teqo-home-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 520px) {
+    .stMainBlockContainer {
+        padding-right: 0.7rem;
+        padding-left: 0.7rem;
+    }
+
+    .teqo-page-meta-note {
+        display: none;
+    }
+
+    .teqo-page-head h1 {
+        font-size: 1.36rem;
+    }
+
+    .teqo-page-head p {
+        font-size: 0.84rem;
+    }
+
+    .teqo-home-title {
+        font-size: 1.95rem;
+    }
+
+    .teqo-emblem {
+        width: min(64vw, 210px);
+    }
+
+    .teqo-metrics {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem;
+    }
+
+    .teqo-metric {
+        padding: 0.8rem 0.85rem 0.75rem;
+    }
+
+    .teqo-metric-value {
+        font-size: 1.28rem;
+    }
+
+    .teqo-metric[data-size="compact"] .teqo-metric-value {
+        font-size: 1rem;
+    }
+
+    .teqo-metric-hint {
+        font-size: 0.68rem;
+    }
+
+    .teqo-risk-row {
+        grid-template-columns: 92px minmax(0, 1fr) 36px;
+        font-size: 0.72rem;
+    }
+
+    .teqo-kv {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+        padding: 6px 0;
+    }
+
+    .teqo-kv dd {
+        font-size: 0.82rem;
+    }
+
+    .teqo-feature {
+        padding: 14px;
+    }
+
+    .teqo-process {
+        grid-template-columns: 1fr;
+    }
+
+    .st-key-teqo-home-ctas [data-testid="stPageLink-NavLink"] {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .teqo-callout {
+        padding: 11px 13px;
+    }
+
+    .teqo-contact-list {
+        gap: 0.5rem 0.9rem;
+    }
+
+    .teqo-home-facts {
+        display: grid;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 390px) {
+    .teqo-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .teqo-home-title {
+        font-size: 1.8rem;
+    }
+
+    .teqo-page-head h1 {
+        font-size: 1.28rem;
+    }
+
+    .teqo-risk-row {
+        grid-template-columns: 86px minmax(0, 1fr) 32px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .teqo-graph-edge,
+    .teqo-graph-node {
+        animation: none;
+    }
+}

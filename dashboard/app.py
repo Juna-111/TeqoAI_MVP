@@ -13,9 +13,32 @@ import pandas as pd
 import streamlit as st
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
+for project_path in (BASE_DIR, DASHBOARD_DIR):
+    if project_path not in sys.path:
+        sys.path.insert(0, project_path)
 
+from components import (  # noqa: E402
+    badge,
+    callout,
+    contact_list,
+    contribution_grid,
+    empty_state,
+    environment_badge,
+    factor_list,
+    feature_grid,
+    kv_card,
+    kv_rows,
+    legend,
+    limitations,
+    metric_grid,
+    page_header,
+    provenance_block,
+    risk_distribution,
+    section_header,
+    status_badge,
+)
+from theme import load_styles  # noqa: E402
 from src.digital_twin import (
     build_graph,
     explain_event,
@@ -41,7 +64,7 @@ from src.case_store import (
 )
 from src.model import align_features, build_features
 
-BRAND = "#38BDF8"
+BRAND = "#36B9D6"
 LOGO_FILE = os.path.join(BASE_DIR, "assets", "teqoai-logo.png")
 
 st.set_page_config(
@@ -51,475 +74,10 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
-st.markdown(
-    """
-    <style>
-    :root {
-        --teqo-accent: #38BDF8;
-        --teqo-bg: #07111F;
-        --teqo-panel: #0E1B2A;
-        --teqo-border: rgba(148, 163, 184, 0.18);
-        --teqo-muted: #94A3B8;
-    }
-    .stApp { background: var(--teqo-bg); }
-    [data-testid="stHeader"] { background: rgba(7, 17, 31, 0.92); }
-    [data-testid="stSidebar"] {
-        background: #0A1726;
-        border-right: 1px solid var(--teqo-border);
-    }
-    .stMainBlockContainer {
-        max-width: 1440px;
-        padding: 2rem clamp(1rem, 3vw, 3rem) 3rem;
-    }
-    :where(a, button, input, textarea, select, [tabindex]):focus-visible {
-        outline: 3px solid #7DD3FC !important;
-        outline-offset: 3px !important;
-        box-shadow: 0 0 0 2px #07111F !important;
-    }
-    [data-testid="stSidebarNav"] a[aria-current="page"] {
-        background: rgba(56, 189, 248, .14);
-        border-left: 3px solid var(--teqo-accent);
-    }
-    [data-testid="stSidebarNav"] a,
-    .stButton > button,
-    [data-testid="stPageLink-NavLink"] {
-        min-height: 44px;
-    }
-    .teqo-brand { font-size: 1.25rem; font-weight: 750; letter-spacing: .04em; }
-    .teqo-brand span { color: var(--teqo-accent); }
-    .teqo-eyebrow {
-        color: #B3C1CC; font-size: .73rem; font-weight: 650;
-        letter-spacing: .12em; text-transform: uppercase;
-    }
-    .teqo-banner {
-        border: 1px solid rgba(56, 189, 248, .25);
-        border-left: 3px solid var(--teqo-accent);
-        border-radius: 8px; padding: 12px 16px;
-        background: rgba(56, 189, 248, .06); margin: 8px 0 20px;
-    }
-    .teqo-banner.warning {
-        border-color: rgba(251, 191, 36, .34);
-        border-left-color: #FBBF24;
-        background: rgba(251, 191, 36, .07);
-    }
-    .teqo-overview-intro {
-        border: 1px solid var(--teqo-border);
-        border-radius: 10px;
-        background: linear-gradient(110deg, rgba(56,189,248,.09), rgba(14,27,42,.92) 58%);
-        padding: 16px 18px;
-        margin: 4px 0 16px;
-    }
-    .teqo-overview-intro h3 { margin: 2px 0 4px; font-size: 1.15rem; }
-    .teqo-overview-intro p { margin: 0; color: #A9BBC9; font-size: .88rem; }
-    .teqo-home-panel {
-        height: 100%;
-        border: 1px solid var(--teqo-border);
-        border-radius: 10px;
-        background: var(--teqo-panel);
-        padding: 15px 17px;
-        margin: 4px 0 18px;
-    }
-    .teqo-home-panel h4 {
-        margin: 0 0 12px;
-        color: #E5F0F7;
-        font-size: .92rem;
-    }
-    .teqo-process {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
-        gap: 12px;
-        margin: 12px 0 24px;
-        padding: 0;
-        list-style: none;
-    }
-    .teqo-process li {
-        position: relative;
-        min-width: 0;
-        min-height: 104px;
-        padding: 16px;
-        border: 1px solid var(--teqo-border);
-        border-radius: 12px;
-        background: linear-gradient(145deg, #0E1B2A, #0A1726);
-    }
-    .teqo-process strong { display: block; margin-bottom: 7px; color: #E5F0F7; }
-    .teqo-process span { color: #B3C1CC; font-size: .84rem; line-height: 1.55; }
-    .teqo-contribution {
-        height: 100%;
-        min-height: 150px;
-        padding: 16px;
-        border: 1px solid var(--teqo-border);
-        border-radius: 12px;
-        background: var(--teqo-panel);
-    }
-    .teqo-contribution strong { display: block; margin-bottom: 8px; color: #E5F0F7; }
-    .teqo-contribution p { margin: 0; color: #B3C1CC; font-size: .84rem; line-height: 1.6; }
-    .teqo-contribution small { display: block; margin-top: 10px; color: #7DD3FC; }
-    .teqo-research-note {
-        padding: 14px 16px;
-        border: 1px solid rgba(251, 191, 36, .34);
-        border-left: 3px solid #FBBF24;
-        border-radius: 9px;
-        background: rgba(251, 191, 36, .07);
-        color: #F3E4BE;
-        line-height: 1.6;
-    }
-    .teqo-risk-row {
-        display: grid;
-        grid-template-columns: 72px 1fr 52px;
-        align-items: center;
-        gap: 10px;
-        margin: 11px 0;
-        color: #C7D5E0;
-        font-size: .78rem;
-    }
-    .teqo-risk-track {
-        height: 7px;
-        overflow: hidden;
-        border-radius: 99px;
-        background: #1B2B3A;
-    }
-    .teqo-risk-fill { height: 100%; border-radius: inherit; }
-    .teqo-queue-stat {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--teqo-border);
-        color: #A9BBC9;
-        font-size: .8rem;
-    }
-    .teqo-queue-stat:last-child { border-bottom: 0; }
-    .teqo-queue-stat strong { color: #E5F0F7; font-variant-numeric: tabular-nums; }
-    div[data-testid="stMetric"] {
-        background: var(--teqo-panel); border: 1px solid var(--teqo-border);
-        padding: 14px 16px; border-radius: 10px;
-    }
-    div[data-testid="stMetricLabel"] { color: var(--teqo-muted); }
-    div[data-testid="stMetricValue"] { color: #E5F0F7; }
-    .stButton > button[kind="primary"] {
-        background: var(--teqo-accent); color: #04111E; border: 0;
-        font-weight: 700;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] label {
-        border-radius: 7px;
-        padding: 8px 14px;
-        border: 1px solid var(--teqo-border);
-        background: var(--teqo-panel);
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
-        border-color: var(--teqo-accent);
-        background: rgba(56, 189, 248, .12);
-    }
-    .teqo-foot {
-        color: var(--teqo-muted); font-size: .78rem;
-        border-top: 1px solid var(--teqo-border);
-        margin-top: 30px; padding-top: 14px;
-    }
-    .teqo-data-badge {
-        display: inline-block;
-        margin-top: 12px;
-        padding: 4px 9px;
-        border: 1px solid rgba(251, 191, 36, .34);
-        border-radius: 999px;
-        color: #FCD887;
-        background: rgba(251, 191, 36, .07);
-        font-size: .68rem;
-        font-weight: 700;
-        letter-spacing: .06em;
-        white-space: nowrap;
-    }
-    .teqo-section-kicker {
-        color: var(--teqo-accent);
-        font-size: .73rem;
-        font-weight: 750;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-    }
-    .st-key-teqo-home {
-        background:
-            radial-gradient(ellipse at 86% 3%, rgba(56,189,248,.09), transparent 31%);
-    }
-    .teqo-home-hero {
-        max-width: 920px;
-        padding: clamp(1.5rem, 5vw, 4rem) 0 2.5rem;
-    }
-    .teqo-home-hero-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.6fr) minmax(220px, .7fr);
-        align-items: center;
-        gap: clamp(1rem, 4vw, 4rem);
-    }
-    .teqo-home-hero-logo {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-width: 0;
-    }
-    .teqo-home-hero-logo img {
-        width: min(100%, 340px);
-        height: auto;
-        filter: drop-shadow(0 18px 34px rgba(0, 120, 255, .16));
-    }
-    .teqo-home-hero h1 {
-        margin: 14px 0 18px;
-        font-size: clamp(2.7rem, 7vw, 5.4rem);
-        line-height: 1.02;
-        letter-spacing: -.055em;
-    }
-    .teqo-home-hero p {
-        max-width: 760px;
-        color: #B5C5D2;
-        font-size: clamp(1rem, 1.5vw, 1.16rem);
-        line-height: 1.8;
-    }
-    .teqo-home-section {
-        margin-top: clamp(2.5rem, 6vw, 5rem);
-    }
-    .teqo-home-section h2 {
-        margin: 8px 0 12px;
-        font-size: clamp(1.5rem, 3vw, 2rem);
-        letter-spacing: -.025em;
-    }
-    .teqo-home-copy {
-        max-width: 760px;
-        color: #B5C5D2;
-        font-size: 1rem;
-        line-height: 1.8;
-    }
-    .teqo-home-facts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 30px;
-        margin-top: 22px;
-        color: #D8E5EE;
-        font-size: .88rem;
-    }
-    .teqo-home-facts span { color: #8FA5B5; }
-    .teqo-home-feature {
-        padding: 12px 0;
-    }
-    .teqo-home-features {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-        gap: clamp(20px, 4vw, 48px);
-        margin-top: 20px;
-    }
-    .teqo-home-feature .teqo-section-kicker { margin-bottom: 12px; }
-    .teqo-home-feature h3 { margin: 0 0 8px; font-size: 1.08rem; }
-    .teqo-home-feature p {
-        margin: 0;
-        color: #B5C5D2;
-        font-size: .9rem;
-        line-height: 1.7;
-    }
-    .teqo-home-steps {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
-        gap: 20px;
-        margin: 20px 0 0;
-        padding: 0;
-        list-style: none;
-    }
-    .teqo-home-steps li { min-width: 0; padding: 8px 0; }
-    .teqo-home-steps strong {
-        display: block;
-        margin: 10px 0 6px;
-        color: #E5F0F7;
-        font-size: 1rem;
-    }
-    .teqo-home-steps span { color: #B5C5D2; font-size: .88rem; line-height: 1.6; }
-    .teqo-home-number { color: var(--teqo-accent); font-size: .76rem; font-weight: 750; }
-    .teqo-home-about { max-width: 880px; color: #B5C5D2; line-height: 1.8; }
-    .teqo-home-contacts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 24px;
-        margin-top: 18px;
-    }
-    .teqo-home-contacts a {
-        color: #DDF5FF !important;
-        text-decoration: underline;
-        text-decoration-color: rgba(56,189,248,.55);
-        text-underline-offset: 4px;
-    }
-    .teqo-home-contacts a:hover { color: #7DD3FC !important; }
-    .teqo-home-note {
-        max-width: 920px;
-        margin-top: 2rem;
-        color: #C4D5E1;
-        font-size: .9rem;
-        line-height: 1.75;
-    }
-    .st-key-teqo-home-footer {
-        margin-top: clamp(3rem, 7vw, 6rem);
-        padding: clamp(1.5rem, 4vw, 2.5rem) 0 1rem;
-        border-top: 1px solid var(--teqo-border);
-        background: linear-gradient(180deg, rgba(14,27,42,.35), transparent 75%);
-    }
-    .teqo-home-footer-brand {
-        max-width: 230px;
-        color: #B5C5D2;
-        font-size: .85rem;
-        line-height: 1.65;
-    }
-    .teqo-home-footer-brand img {
-        width: min(100%, 190px);
-        height: auto;
-        margin-bottom: 12px;
-    }
-    .teqo-home-footer-content h2 {
-        margin: 4px 0 8px;
-        color: #E5F0F7;
-        font-size: 1.35rem;
-    }
-    .teqo-home-footer-content p {
-        margin: 0;
-        color: #B5C5D2;
-        font-size: .9rem;
-        line-height: 1.7;
-    }
-    .teqo-home-footer-contacts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px 24px;
-        margin: 18px 0 22px;
-    }
-    .teqo-home-footer-contacts a {
-        color: #DDF5FF !important;
-        font-size: .88rem;
-        text-decoration: underline;
-        text-decoration-color: rgba(56,189,248,.55);
-        text-underline-offset: 4px;
-    }
-    .teqo-home-footer-contacts a:hover { color: #7DD3FC !important; }
-    .teqo-home-footer-contacts a {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .teqo-home-contact-icon {
-        display: inline-flex;
-        width: 18px;
-        height: 18px;
-        align-items: center;
-        justify-content: center;
-        color: #38BDF8;
-    }
-    .teqo-home-contact-icon svg {
-        width: 17px;
-        height: 17px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.7;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-    }
-    .teqo-home-footer-note {
-        max-width: 800px;
-        margin-top: 14px !important;
-        color: #9FB1BF !important;
-        font-size: .8rem !important;
-    }
-    .teqo-home-footer-bottom {
-        margin-top: 28px;
-        padding-top: 14px;
-        border-top: 1px solid var(--teqo-border);
-        color: #94A3B8;
-        font-size: .76rem;
-    }
-    .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"] {
-        display: inline-flex;
-        width: auto;
-        justify-content: flex-start;
-        min-height: 44px;
-        margin-right: 1rem;
-        padding: 8px 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        color: #DDF5FF;
-        text-decoration: none;
-    }
-    .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"]:hover {
-        border: 0;
-        background: transparent;
-        color: #7DD3FC;
-        text-decoration: underline;
-        text-underline-offset: 5px;
-    }
-    [data-testid="stMain"] [data-testid="stPageLink-NavLink"] {
-        display: flex;
-        justify-content: center;
-        min-height: 42px;
-        padding: 8px 12px;
-        border: 1px solid rgba(56, 189, 248, .32);
-        border-radius: 9px;
-        background: rgba(56, 189, 248, .08);
-        color: #DDF5FF;
-        text-decoration: none;
-        transition: background-color .18s ease, border-color .18s ease;
-    }
-    [data-testid="stMain"] [data-testid="stPageLink-NavLink"]:hover {
-        border-color: var(--teqo-accent);
-        background: rgba(56, 189, 248, .16);
-    }
-    .teqo-graph-shell {
-        border: 1px solid rgba(56, 189, 248, .2);
-        border-radius: 14px;
-        overflow: hidden;
-        background:
-            radial-gradient(ellipse at 50% 45%, rgba(15, 54, 79, .55), transparent 70%),
-            #07111F;
-        box-shadow: 0 18px 48px rgba(0, 0, 0, .28), inset 0 0 40px rgba(56, 189, 248, .04);
-    }
-    .teqo-graph-shell svg { display: block; width: 100%; height: auto; }
-    .teqo-graph-edge {
-        stroke-dasharray: 8 10;
-        animation: teqo-flow 3.2s linear infinite;
-    }
-    .teqo-graph-node { transform-box: fill-box; transform-origin: center; }
-    .teqo-graph-node.source { animation: teqo-pulse 2.4s ease-in-out infinite; }
-    .teqo-graph-node.critical { animation: teqo-pulse 2.8s ease-in-out infinite; }
-    @keyframes teqo-flow { to { stroke-dashoffset: -72; } }
-    @keyframes teqo-pulse {
-        0%, 100% { opacity: .84; }
-        50% { opacity: 1; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-            animation-duration: .01ms !important;
-            animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
-            transition-duration: .01ms !important;
-        }
-        .teqo-graph-edge, .teqo-graph-node { animation: none; }
-    }
-    @media (max-width: 760px) {
-        .stMainBlockContainer { padding: 1.25rem 1rem 2rem; }
-        [data-testid="stHorizontalBlock"] {
-            flex-wrap: wrap;
-            gap: .75rem;
-        }
-        [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-            min-width: min(100%, 260px);
-            flex: 1 1 260px;
-        }
-        .teqo-home-hero { padding-top: 1.5rem; }
-        .teqo-home-hero-row { grid-template-columns: 1fr; }
-        .teqo-home-hero-logo { justify-content: flex-start; }
-        .teqo-home-hero-logo img { width: min(58vw, 240px); }
-        .teqo-home-facts { display: grid; gap: 10px; }
-        .teqo-home-steps { grid-template-columns: 1fr; gap: 12px; }
-        .teqo-home-footer-brand { max-width: 180px; }
-    }
-    @media (max-width: 420px) {
-        .stMainBlockContainer { padding-right: .75rem; padding-left: .75rem; }
-        .stMain .st-key-teqo-home [data-testid="stPageLink-NavLink"] { margin-right: .5rem; }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+if os.path.exists(LOGO_FILE):
+    st.logo(LOGO_FILE, size="large")
+
+load_styles()
 
 
 @st.cache_data
@@ -806,42 +364,59 @@ def render_overview(data, queue, cases):
             )
         ).sum()
     )
-    cards = st.columns(4)
-    cards[0].metric("Active alerts", f"{active:,}")
-    cards[1].metric("High-risk · active", f"{high_active:,}")
-    cards[2].metric("Escalated", f"{escalated:,}")
-    cards[3].metric("Events analyzed", f"{len(data):,}")
 
     st.markdown(
-        '<div class="teqo-overview-intro">'
-        '<div class="teqo-eyebrow">Shift overview</div>'
-        '<h3>Know what needs attention first</h3>'
-        '<p>Review the priority queue below, then open <b>Investigate</b> to '
-        'validate an alert and record a case decision. TeqoAI does not take '
-        'automated response actions.</p></div>',
+        metric_grid(
+            [
+                {
+                    "label": "Active alerts",
+                    "value": f"{active:,}",
+                    "hint": "Open or under investigation",
+                    "tone": "info",
+                },
+                {
+                    "label": "High-risk active",
+                    "value": f"{high_active:,}",
+                    "hint": "Priority review required",
+                    "tone": "critical",
+                },
+                {
+                    "label": "Escalated cases",
+                    "value": f"{escalated:,}",
+                    "hint": "Escalated by an analyst",
+                    "tone": "warning",
+                },
+                {
+                    "label": "Events analyzed",
+                    "value": f"{len(data):,}",
+                    "hint": "Events in the loaded sample",
+                    "tone": "blue",
+                },
+            ]
+        ),
         unsafe_allow_html=True,
     )
 
-    posture, snapshot = st.columns([1.15, 1])
+    st.markdown(
+        callout(
+            "Review sequence",
+            "Start with the priority queue, select an alert, and open Alert Investigation. "
+            "Evidence and case decisions stay with the analyst; TeqoAI does not take "
+            "automated response actions.",
+        ),
+        unsafe_allow_html=True,
+    )
+
+    posture, snapshot = st.columns([1.2, 1], gap="medium")
     with posture:
         severity_counts = data["risk_level"].value_counts()
-        severity_colors = {"High": "#FB7185", "Medium": "#FBBF24", "Low": "#34D399"}
-        total_events = max(len(data), 1)
-        severity_rows = []
-        for level in ("High", "Medium", "Low"):
-            count = int(severity_counts.get(level, 0))
-            percent = count / total_events * 100
-            severity_rows.append(
-                f'<div class="teqo-risk-row"><span>{level}</span>'
-                f'<div class="teqo-risk-track"><div class="teqo-risk-fill" '
-                f'style="width:{percent:.1f}%;background:{severity_colors[level]}">'
-                f'</div></div><strong>{count:,}</strong></div>'
-            )
         st.markdown(
-            '<div class="teqo-home-panel"><h4>Detection severity</h4>'
-            + "".join(severity_rows)
-            + '<div class="teqo-eyebrow" style="margin-top:12px">'
-            + f'{len(data):,} analyzed events</div></div>',
+            risk_distribution(
+                severity_counts,
+                len(data),
+                "Risk levels are transparent review priorities, not confirmed incidents "
+                "or probabilities of compromise.",
+            ),
             unsafe_allow_html=True,
         )
     with snapshot:
@@ -852,24 +427,35 @@ def render_overview(data, queue, cases):
             if not queue.empty else 0
         )
         st.markdown(
-            '<div class="teqo-home-panel"><h4>Current queue</h4>'
-            f'<div class="teqo-queue-stat"><span>Matching your filters</span>'
-            f'<strong>{len(queue):,}</strong></div>'
-            f'<div class="teqo-queue-stat"><span>High severity</span>'
-            f'<strong>{queue_high:,}</strong></div>'
-            f'<div class="teqo-queue-stat"><span>New cases</span>'
-            f'<strong>{queue_new:,}</strong></div>'
-            f'<div class="teqo-queue-stat"><span>Unassigned</span>'
-            f'<strong>{queue_unassigned:,}</strong></div></div>',
+            '<div class="teqo-panel"><div class="teqo-panel-head">'
+            '<h3 class="teqo-panel-title">Current queue</h3>'
+            '<span class="teqo-panel-meta">Sidebar filters</span></div>'
+            + kv_rows(
+                [
+                    ("Matching filters", f"{len(queue):,}"),
+                    ("High severity", f"{queue_high:,}"),
+                    ("New cases", f"{queue_new:,}"),
+                    ("Unassigned", f"{queue_unassigned:,}"),
+                    ("Case stage", str(st.session_state.get("case_view") or "All")),
+                ]
+            )
+            + '<p class="teqo-panel-note">Case stage and severity filters apply to '
+            "the queue below. Filters are retained while you investigate an alert.</p></div>",
             unsafe_allow_html=True,
         )
 
     heading, export = st.columns([5, 1])
-    heading.markdown("### Priority alerts")
-    heading.caption(
-        "Sorted by urgency using the sidebar filters. Open **Investigate** "
-        "to review evidence and update a case."
-    )
+    with heading:
+        st.markdown(
+            section_header(
+                "PRIORITY QUEUE",
+                "Alerts to review first",
+                "Sorted by case stage and severity. Select a row to open it in "
+                "Alert Investigation.",
+            ),
+            unsafe_allow_html=True,
+        )
+
     saved_cases = export_cases(DATASET)
     if saved_cases:
         case_export = pd.DataFrame(saved_cases).merge(
@@ -883,13 +469,7 @@ def render_overview(data, queue, cases):
             right_on="_event_id",
             how="left",
         ).drop(columns=["_event_id"])
-        case_export = case_export.apply(
-            lambda column: column.map(csv_safe_text)
-        )
-        export.caption(
-            "The export includes analyst notes. Store it securely; text is escaped "
-            "to reduce spreadsheet formula risks."
-        )
+        case_export = case_export.apply(lambda column: column.map(csv_safe_text))
         export.download_button(
             "Export cases",
             data=case_export.to_csv(index=False),
@@ -897,30 +477,69 @@ def render_overview(data, queue, cases):
             mime="text/csv",
             width="stretch",
         )
+        st.caption(
+            "The case export includes analyst notes. Store it securely; text is "
+            "escaped to reduce spreadsheet formula risks."
+        )
 
     if queue.empty:
-        st.info("No alerts match this queue view. Change the status or risk filters.")
+        st.markdown(
+            empty_state(
+                "No alerts match this view",
+                "Change the case stage, severity, or search filters in the sidebar "
+                "to restore the review queue.",
+            ),
+            unsafe_allow_html=True,
+        )
         return
+
     display = queue.head(25).copy()
     columns = [
         "case_status", "risk_level", "risk_score", "time", "user", "device",
         "target_device", "case_owner", "risk_reasons",
     ]
-    st.dataframe(
+    column_config = {
+        "case_status": st.column_config.TextColumn("Case"),
+        "risk_level": st.column_config.TextColumn("Severity"),
+        "risk_score": st.column_config.ProgressColumn(
+            "Risk score", min_value=0, max_value=100, format="%.1f"
+        ),
+        "time": st.column_config.NumberColumn("Elapsed seconds", format="%d"),
+        "case_owner": st.column_config.TextColumn("Analyst"),
+        "risk_reasons": st.column_config.TextColumn("Detection reason", width="large"),
+    }
+    selection = st.dataframe(
         display[columns],
         width="stretch",
         hide_index=True,
-        height=430,
-        column_config={
-            "case_status": st.column_config.TextColumn("Case"),
-            "risk_level": st.column_config.TextColumn("Severity"),
-            "risk_score": st.column_config.ProgressColumn(
-                "Risk score", min_value=0, max_value=100, format="%.1f"
-            ),
-            "time": st.column_config.NumberColumn("Elapsed seconds", format="%d"),
-            "case_owner": st.column_config.TextColumn("Analyst"),
-        },
+        height=420,
+        key="overview-priority-table",
+        on_select="rerun",
+        selection_mode="single-row",
+        column_config=column_config,
     )
+    selected_rows = getattr(getattr(selection, "selection", None), "rows", [])
+    if selected_rows:
+        selected = display.iloc[selected_rows[0]]
+        st.markdown(
+            callout(
+                "Selected alert",
+                f"{selected['risk_level']} priority · {selected['user']} · "
+                f"{selected['device']} → {selected['target_device']} · "
+                f"score {float(selected['risk_score']):.1f}",
+            ),
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Open selected alert in Alert Investigation",
+            type="primary",
+            key="overview-open-selected",
+        ):
+            st.session_state["investigation-event"] = str(selected["_event_id"])
+            st.switch_page(investigation_page)
+    else:
+        st.caption("Select a table row to open that alert in Alert Investigation.")
+
     remaining = queue.iloc[25:300]
     if not remaining.empty:
         with st.expander(f"Show {len(remaining):,} more filtered alerts"):
@@ -928,30 +547,34 @@ def render_overview(data, queue, cases):
                 remaining[columns],
                 width="stretch",
                 hide_index=True,
-                height=430,
-                column_config={
-                    "case_status": st.column_config.TextColumn("Case"),
-                    "risk_level": st.column_config.TextColumn("Severity"),
-                    "risk_score": st.column_config.ProgressColumn(
-                        "Risk score", min_value=0, max_value=100, format="%.1f"
-                    ),
-                    "time": st.column_config.NumberColumn("Elapsed seconds", format="%d"),
-                    "case_owner": st.column_config.TextColumn("Analyst"),
-                },
+                height=420,
+                column_config=column_config,
             )
     if len(queue) > 300:
         st.caption(
-            "The Overview shows the first 300 alerts. Use Investigate to browse "
-            "the full filtered queue. Event times are elapsed seconds, not local clock times."
+            "The Security Overview shows the first 300 alerts. Use Alert Investigation "
+            "to browse the full filtered queue. Event times are elapsed seconds, not "
+            "local clock times."
         )
 
 
 def render_investigation(queue, data, graph, cases, clean_events):
-    st.subheader("Case investigation")
     if queue.empty:
-        st.info("No alerts match this queue view. Change the status or risk filters.")
+        st.markdown(
+            empty_state(
+                "No alerts in this view",
+                "Change the case stage, severity, or search filters in the sidebar "
+                "to choose an alert for investigation.",
+            ),
+            unsafe_allow_html=True,
+        )
         return
 
+    st.markdown(
+        '<p class="teqo-toolbar-note">Choose an alert from the filtered queue. '
+        "The selection stays in place while you review evidence and update the case.</p>",
+        unsafe_allow_html=True,
+    )
     event_ids = queue["_event_id"].tolist()[:500]
     # Keep the investigated alert selected even if saving a case moves it in
     # the priority queue. If a filter hides the alert entirely, reset the choice.
@@ -964,7 +587,7 @@ def render_investigation(queue, data, graph, cases, clean_events):
         else:
             st.session_state.pop("investigation-event", None)
     selected_event_id = st.selectbox(
-        "Alert to investigate",
+        "Active alert",
         options=event_ids,
         format_func=lambda event_id: event_label(
             queue.loc[queue["_event_id"] == event_id].iloc[0]
@@ -975,42 +598,110 @@ def render_investigation(queue, data, graph, cases, clean_events):
     event_id = str(row["_event_id"])
     case = cases.get(event_id, {})
     status_default = case.get("status", "New")
+    severity_tone = {"High": "critical", "Medium": "warning", "Low": "success"}.get(
+        str(row["risk_level"]), "info"
+    )
+    status_tone = {
+        "New": "info",
+        "Investigating": "warning",
+        "Escalated": "critical",
+        "Resolved": "success",
+        "Benign": "neutral",
+    }.get(status_default, "neutral")
 
-    summary = st.columns([1, 1, 1, 2])
-    summary[0].metric("Severity", str(row["risk_level"]))
-    summary[1].metric("Priority score", f"{row['risk_score']:.1f}/100")
-    summary[2].metric("Case status", status_default)
-    summary[3].metric("Assigned analyst", case.get("owner") or "Unassigned")
+    st.markdown(
+        metric_grid(
+            [
+                {
+                    "label": "Severity",
+                    "value": str(row["risk_level"]),
+                    "hint": "Risk level from the transparent risk layer",
+                    "tone": severity_tone,
+                    "size": "compact",
+                },
+                {
+                    "label": "Priority score",
+                    "value": f"{row['risk_score']:.1f} / 100",
+                    "hint": "Relative review priority, not a probability",
+                    "tone": "info",
+                },
+                {
+                    "label": "Case status",
+                    "value": status_default,
+                    "hint": "Analyst-owned investigation state",
+                    "tone": status_tone,
+                    "size": "compact",
+                },
+                {
+                    "label": "Assigned analyst",
+                    "value": case.get("owner") or "Unassigned",
+                    "hint": "Recorded in the local case store",
+                    "tone": "blue",
+                    "size": "compact",
+                },
+            ]
+        ),
+        unsafe_allow_html=True,
+    )
 
-    context, evidence = st.columns([1, 1])
+    context, evidence = st.columns([1, 1], gap="medium")
     with context:
-        st.markdown("#### Alert summary")
-        st.write(f"**Account:** `{row['user']}`")
-        st.write(f"**Source:** `{row['device']}`")
-        st.write(f"**Destination:** `{row['target_device']}`")
-        st.write(f"**Authentication:** {row['result']} · {row['action']}")
-        st.write(f"**Elapsed time:** {int(row['time'])} seconds")
-        st.write(f"**Detection reason:** {row.get('risk_reasons', 'No reason recorded')}")
-        st.caption("Priority score is a relative ranking signal, not a probability of compromise.")
-        st.info(recommend_action(row))
+        st.markdown(
+            '<div class="teqo-panel"><div class="teqo-panel-head">'
+            '<h3 class="teqo-panel-title">Alert context</h3>'
+            + status_badge(status_default)
+            + "</div>"
+            + kv_card(
+                [
+                    ("Account", f'<span class="teqo-mono">{html.escape(str(row["user"]))}</span>'),
+                    ("Source device", f'<span class="teqo-mono">{html.escape(str(row["device"]))}</span>'),
+                    ("Destination", f'<span class="teqo-mono">{html.escape(str(row["target_device"]))}</span>'),
+                    ("Authentication", html.escape(f"{row['result']} · {row['action']}")),
+                    ("Elapsed time", f"{int(row['time']):,} s"),
+                    ("Risk level", html.escape(str(row["risk_level"]))),
+                ]
+            )
+            + '<p class="teqo-panel-note">Event times are elapsed seconds in the loaded '
+            "sample, not local clock times.</p></div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            callout(
+                "Detection reason",
+                str(row.get("risk_reasons", "No reason recorded")),
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            callout("Suggested next step", recommend_action(row)),
+            unsafe_allow_html=True,
+        )
+
     with evidence:
-        st.markdown("#### Detection evidence")
         factor_labels = {
             "factor_new_device": "First observed user-to-destination pair",
             "factor_sensitive_asset": "Destination is configured as sensitive",
             "factor_failed_login": "Authentication failed",
-            "factor_burst_activity": "User activity exceeded burst threshold",
+            "factor_burst_activity": "User activity exceeded the burst threshold",
         }
-        triggered = [
-            label for key, label in factor_labels.items() if bool(row.get(key, False))
+        factors = [
+            (label, bool(row.get(key, False)), "")
+            for key, label in factor_labels.items()
         ]
-        if triggered:
-            for label in triggered:
-                st.markdown(f"- {label}")
-        else:
-            st.write("No rule factor was recorded; anomaly ranking contributed to this score.")
-        st.caption(
-            "Prototype signals require analyst validation; they are not proof of compromise."
+        triggered_count = sum(active for _, active, _ in factors)
+        st.markdown(
+            '<div class="teqo-panel"><div class="teqo-panel-head">'
+            '<h3 class="teqo-panel-title">Detection evidence</h3>'
+            + badge(
+                f"{triggered_count} of 4 signals",
+                "warning" if triggered_count else "neutral",
+            )
+            + "</div>"
+            + factor_list(factors)
+            + '<p class="teqo-panel-note">Rule factors are independently checkable; '
+            "the anomaly ranking can also contribute when no factor fires. Signals "
+            "require analyst validation and are not proof of compromise.</p></div>",
+            unsafe_allow_html=True,
         )
         if st.button("Generate SHAP explanation", key=f"shap-{event_id}"):
             try:
@@ -1038,16 +729,29 @@ def render_investigation(queue, data, graph, cases, clean_events):
             ) as error:
                 st.error(f"The Shapley explanation could not be generated: {error}")
 
-    timeline, twin = st.columns([1.2, 1])
+    timeline, twin = st.columns([1.2, 1], gap="medium")
     with timeline:
-        st.markdown("#### Related authentication activity")
+        st.markdown(
+            section_header(
+                "ACTIVITY CONTEXT",
+                "Related authentication activity",
+                "Matching account or source device within ±300 seconds.",
+            ),
+            unsafe_allow_html=True,
+        )
         time_value = row["time"]
         related = data[
             ((data["user"] == row["user"]) | (data["device"] == row["device"]))
             & (data["time"].between(time_value - 300, time_value + 300))
         ].sort_values("time")
         if related.empty:
-            st.info("No related events in the five-minute context window.")
+            st.markdown(
+                empty_state(
+                    "No related events",
+                    "No matching activity appears in the five-minute context window.",
+                ),
+                unsafe_allow_html=True,
+            )
         else:
             st.dataframe(
                 related[["time", "user", "device", "target_device", "result", "action"]]
@@ -1056,9 +760,18 @@ def render_investigation(queue, data, graph, cases, clean_events):
                 hide_index=True,
                 height=250,
             )
-        st.caption("Related events use a ±300-second window and matching account or source device.")
+        st.caption(
+            "Related events use a ±300-second window and matching account or source device."
+        )
     with twin:
-        st.markdown("#### Assets along observed paths")
+        st.markdown(
+            section_header(
+                "OBSERVED PATHS",
+                "Assets along observed routes",
+                "Bounded links from the successful-authentication sample.",
+            ),
+            unsafe_allow_html=True,
+        )
         paths = get_attack_paths(graph, str(row["device"]))
         if paths:
             st.dataframe(
@@ -1078,62 +791,89 @@ def render_investigation(queue, data, graph, cases, clean_events):
                 height=250,
             )
         else:
-            st.info("No observed outbound authentication paths for this source device.")
-        st.caption("Observed event links are not verified network reachability or permissions.")
+            st.markdown(
+                empty_state(
+                    "No onward paths",
+                    "No observed outbound authentication paths were recorded for this "
+                    "source device.",
+                ),
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            "Observed event links are not verified network reachability or permissions."
+        )
 
-    st.markdown("#### Analyst action plan")
-    st.caption("Checklist items are reminders only. TeqoAI does not execute containment actions.")
+    st.markdown(
+        section_header(
+            "CASE WORKFLOW",
+            "Analyst action plan",
+            "Record status, ownership, notes, and checklist progress. TeqoAI does not "
+            "execute containment actions.",
+        ),
+        unsafe_allow_html=True,
+    )
     saved_flag = f"case-saved-{event_id}"
     if st.session_state.pop(saved_flag, False):
         st.success("Case saved locally and added to the audit trail.")
-    with st.form(f"case-form-{event_id}"):
-        form_left, form_right = st.columns([1, 2])
-        with form_left:
-            status = st.selectbox(
-                "Case status",
-                options=list(CASE_STATUSES),
-                index=list(CASE_STATUSES).index(status_default),
-                key=f"status-{event_id}",
-            )
-            owner = st.text_input(
-                "Assigned analyst",
-                value=case.get("owner", ""),
-                max_chars=120,
-                key=f"owner-{event_id}",
-            )
-        with form_right:
-            notes = st.text_area(
-                "Investigation notes",
-                value=case.get("notes", ""),
-                max_chars=10_000,
-                height=130,
-                key=f"notes-{event_id}",
-            )
-        checklist_current = case.get("checklist", {})
-        checklist = {}
-        checklist_cols = st.columns(2)
-        for index, item in enumerate(CHECKLIST_ITEMS):
-            with checklist_cols[index % 2]:
-                checklist[item] = st.checkbox(
-                    item,
-                    value=bool(checklist_current.get(item, False)),
-                    key=f"check-{event_id}-{index}",
+    with st.container(key=f"teqo-case-form-{event_id}"):
+        with st.form(f"case-form-{event_id}"):
+            form_left, form_right = st.columns([1, 2])
+            with form_left:
+                status = st.selectbox(
+                    "Case status",
+                    options=list(CASE_STATUSES),
+                    index=list(CASE_STATUSES).index(status_default),
+                    key=f"status-{event_id}",
                 )
-        submitted = st.form_submit_button("Save case and audit entry", type="primary")
-        if submitted:
-            try:
-                save_case(DATASET, event_id, status, owner, notes, checklist)
-            except (OSError, sqlite3.Error, ValueError):
-                st.error(
-                    "This case could not be saved. Your latest changes were not recorded."
+                owner = st.text_input(
+                    "Assigned analyst",
+                    value=case.get("owner", ""),
+                    max_chars=120,
+                    key=f"owner-{event_id}",
                 )
-            else:
-                st.session_state[saved_flag] = True
-                st.rerun()
+            with form_right:
+                notes = st.text_area(
+                    "Investigation notes",
+                    value=case.get("notes", ""),
+                    max_chars=10_000,
+                    height=130,
+                    key=f"notes-{event_id}",
+                )
+            checklist_current = case.get("checklist", {})
+            checklist = {}
+            checklist_cols = st.columns(2)
+            for index, item in enumerate(CHECKLIST_ITEMS):
+                with checklist_cols[index % 2]:
+                    checklist[item] = st.checkbox(
+                        item,
+                        value=bool(checklist_current.get(item, False)),
+                        key=f"check-{event_id}-{index}",
+                    )
+            submitted = st.form_submit_button(
+                "Save case and audit entry", type="primary"
+            )
+            if submitted:
+                try:
+                    save_case(DATASET, event_id, status, owner, notes, checklist)
+                except (OSError, sqlite3.Error, ValueError):
+                    st.error(
+                        "This case could not be saved. Your latest changes were not "
+                        "recorded."
+                    )
+                else:
+                    st.session_state[saved_flag] = True
+                    st.rerun()
 
     history = get_case_history(DATASET, event_id)
     if history:
-        st.markdown("#### Case activity")
+        st.markdown(
+            section_header(
+                "AUDIT TRAIL",
+                "Case activity",
+                "Changes recorded in the local case store.",
+            ),
+            unsafe_allow_html=True,
+        )
         history_frame = pd.DataFrame(
             [
                 {
@@ -1163,6 +903,7 @@ def render_graph_svg(graph, selected_source, highlighted_nodes, highlighted_edge
 
     svg_parts = [
         '<style>'
+        'html,body{margin:0;padding:0;overflow:hidden;background:#07111F}'
         '.teqo-graph-shell{border:1px solid rgba(56,189,248,.2);border-radius:14px;'
         'overflow:hidden;background:radial-gradient(ellipse at 50% 45%,'
         'rgba(15,54,79,.55),transparent 70%),#07111F;'
@@ -1243,8 +984,25 @@ def render_graph_svg(graph, selected_source, highlighted_nodes, highlighted_edge
 
 def render_twin(graph, queue):
     if graph.number_of_nodes() == 0:
-        st.info("No connections are available to explore.")
+        st.markdown(
+            empty_state(
+                "No connections to explore",
+                "The loaded sample does not contain any successful authentication "
+                "observations to link.",
+            ),
+            unsafe_allow_html=True,
+        )
         return
+
+    st.markdown(
+        callout(
+            "What this view shows",
+            "Directed links are built only from successful authentication observations. "
+            "They describe the loaded sample, not verified network reachability, "
+            "permissions, or a confirmed attack path.",
+        ),
+        unsafe_allow_html=True,
+    )
 
     source_options = sorted(graph.nodes())
     default_source = (
@@ -1252,11 +1010,21 @@ def render_twin(graph, queue):
         if not queue.empty and str(queue.iloc[0]["device"]) in graph
         else source_options[0]
     )
-    selected_source = st.selectbox(
-        "Start from a device",
-        options=source_options,
-        index=source_options.index(default_source),
-    )
+    control, context = st.columns([1, 2], gap="medium")
+    with control:
+        selected_source = st.selectbox(
+            "Starting device",
+            options=source_options,
+            index=source_options.index(default_source),
+        )
+    with context:
+        st.markdown(
+            '<p class="teqo-toolbar-note">Choose any observed device to highlight the '
+            "bounded routes recorded from it. The priority source defaults to the "
+            "highest-ranked alert in the current queue.</p>",
+            unsafe_allow_html=True,
+        )
+
     paths = get_attack_paths(graph, selected_source)
     highlighted_nodes = {selected_source}
     highlighted_edges = set()
@@ -1264,10 +1032,32 @@ def render_twin(graph, queue):
         highlighted_nodes.update(path["path"])
         highlighted_edges.update(zip(path["path"][:-1], path["path"][1:]))
 
-    metric_a, metric_b, metric_c = st.columns(3)
-    metric_a.metric("Devices and systems", f"{graph.number_of_nodes():,}")
-    metric_b.metric("Recorded connections", f"{graph.number_of_edges():,}")
-    metric_c.metric("Systems along highlighted routes", f"{len(paths):,}")
+    st.markdown(
+        metric_grid(
+            [
+                {
+                    "label": "Devices and systems",
+                    "value": f"{graph.number_of_nodes():,}",
+                    "hint": "Observed in the loaded sample",
+                    "tone": "info",
+                },
+                {
+                    "label": "Recorded connections",
+                    "value": f"{graph.number_of_edges():,}",
+                    "hint": "Successful authentication observations",
+                    "tone": "blue",
+                },
+                {
+                    "label": "Highlighted routes",
+                    "value": f"{len(paths):,}",
+                    "hint": "Bounded onward paths from this device",
+                    "tone": "warning" if paths else "default",
+                },
+            ]
+        ),
+        unsafe_allow_html=True,
+    )
+
     visible_nodes = set(highlighted_nodes)
     visible_nodes.update(graph.successors(selected_source))
     visible_graph = graph.subgraph(visible_nodes)
@@ -1278,14 +1068,26 @@ def render_twin(graph, queue):
         height=550,
         width="stretch",
     )
+    st.markdown(
+        legend(
+            [
+                ("Selected starting device", "info", False),
+                ("Priority route", "warning", False),
+                ("Other observed connection", "muted", False),
+            ]
+        ),
+        unsafe_allow_html=True,
+    )
 
-    legend_source, legend_path, legend_other = st.columns(3)
-    legend_source.markdown("🔹 **Selected starting device**")
-    legend_path.markdown("🟠 **Priority route**")
-    legend_other.markdown("◌ Other recorded connections")
-
+    st.markdown(
+        section_header(
+            "ONWARD CONNECTIONS",
+            "Where activity was observed next",
+            "Routes are ranked by asset criticality and limited to four hops.",
+        ),
+        unsafe_allow_html=True,
+    )
     if paths:
-        st.markdown("#### Where activity was observed next")
         st.dataframe(
             pd.DataFrame(
                 [
@@ -1301,7 +1103,17 @@ def render_twin(graph, queue):
             hide_index=True,
         )
     else:
-        st.info(f"No onward connections were recorded from {selected_source}.")
+        st.markdown(
+            empty_state(
+                "No onward connections",
+                f"No onward connection was recorded from {selected_source}.",
+            ),
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        "Repeated successful observations increase edge weight. Failed attempts never "
+        "create graph edges."
+    )
 
 
 MODEL_LABELS = {
@@ -1321,9 +1133,11 @@ def _format_metric(value, *, percent=False):
     return f"{number:.1%}" if percent else f"{number:.3f}"
 
 
-def render_process_diagram(title, description, steps):
-    st.markdown(f"#### {title}")
-    st.caption(description)
+def render_process_diagram(title, description, steps, kicker="PROCESS"):
+    st.markdown(
+        section_header(kicker, title, description),
+        unsafe_allow_html=True,
+    )
     items = "".join(
         "<li><strong>{}</strong><span>{}</span></li>".format(
             html.escape(str(label)), html.escape(str(detail))
@@ -1364,38 +1178,83 @@ def _format_model_results(models, known_positives, budget_number):
 
 
 def render_data_quality(clean, data, report, provenance_issues):
-    rows, users, assets = st.columns(3)
-    rows.metric("Activity records reviewed", f"{len(data):,}")
-    users.metric("Accounts represented", f"{data['user'].nunique():,}")
-    assets.metric(
-        "Devices and systems represented",
-        f"{pd.concat([data['device'], data['target_device']]).nunique():,}",
+    record_count = len(data)
+    user_count = int(data["user"].nunique()) if "user" in data.columns else 0
+    asset_count = (
+        int(pd.concat([data["device"], data["target_device"]]).nunique())
+        if {"device", "target_device"}.issubset(data.columns)
+        else 0
+    )
+    st.markdown(
+        metric_grid(
+            [
+                {
+                    "label": "Activity records",
+                    "value": f"{record_count:,}",
+                    "hint": "Events in the loaded sample",
+                    "tone": "info",
+                },
+                {
+                    "label": "Accounts",
+                    "value": f"{user_count:,}",
+                    "hint": "Distinct identities",
+                    "tone": "blue",
+                },
+                {
+                    "label": "Devices and systems",
+                    "value": f"{asset_count:,}",
+                    "hint": "Sources and destinations",
+                    "tone": "default",
+                },
+            ]
+        ),
+        unsafe_allow_html=True,
     )
 
     if provenance_issues:
-        st.warning(
-            "Results are unavailable because the current activity and evaluation "
-            "report do not match. Rerun the local demo pipeline before interpreting them."
+        st.markdown(
+            callout(
+                "Provenance mismatch",
+                "Evaluation results are unavailable because the current activity and "
+                "evaluation report do not match. Rerun the local demo pipeline before "
+                "interpreting these results.",
+                tone="warning",
+            ),
+            unsafe_allow_html=True,
         )
         return
     if report is None:
-        st.info("Evaluation evidence is not available yet. Run the local demo pipeline first.")
+        st.markdown(
+            callout(
+                "Evaluation evidence unavailable",
+                "Run the local demo pipeline to generate an evaluation report, then "
+                "return to this page.",
+            ),
+            unsafe_allow_html=True,
+        )
         return
 
     split = report.get("split", {})
     evaluation = report.get("evaluation", {})
     known_positives = int(split.get("test_known_positive_labels", 0))
-    st.markdown("#### Chronological holdout")
-    st.caption(
-        f"{int(split.get('training_events', 0)):,} earlier events were used for "
-        f"training and {int(split.get('test_events', 0)):,} later events were held "
-        f"out. The held-out period contains {known_positives} known positive labels."
+    st.markdown(
+        section_header(
+            "CHRONOLOGICAL HOLDOUT",
+            "Train on earlier events, evaluate on later events",
+            f"{int(split.get('training_events', 0)):,} earlier events were used for "
+            f"training and {int(split.get('test_events', 0)):,} later events were held "
+            f"out. The held-out period contains {known_positives} known positive labels.",
+        ),
+        unsafe_allow_html=True,
     )
+
     model_metrics = evaluation.get("models", {})
     ranking_rows = [
         {
             "Approach": label,
-            "Status": model_metrics.get(model_key, {}).get("status", "not available").replace("_", " "),
+            "Status": model_metrics.get(model_key, {})
+            .get("status", "not available")
+            .replace("_", " "),
             "Average precision": _format_metric(
                 model_metrics.get(model_key, {}).get("average_precision"),
                 percent=True,
@@ -1409,44 +1268,80 @@ def render_data_quality(clean, data, report, provenance_issues):
         if isinstance(model_metrics.get(model_key, {}), dict)
     ]
     if ranking_rows:
-        st.markdown("#### Ranking metrics")
+        st.markdown(
+            section_header(
+                "RANKING",
+                "Ranking metrics",
+                "Average precision and ROC-AUC compare raw ranking scores with known "
+                "labels in the held-out period.",
+            ),
+            unsafe_allow_html=True,
+        )
         st.dataframe(pd.DataFrame(ranking_rows), width="stretch", hide_index=True)
+
     for budget_number in (30, 100):
         findings = _format_model_results(
             model_metrics, known_positives, budget_number
         )
         if findings:
-            st.markdown(f"#### Top-{budget_number} review budget")
+            st.markdown(
+                section_header(
+                    "REVIEW BUDGET",
+                    f"Top-{budget_number} review budget",
+                    "Agreement with known labels when analysts can review only the "
+                    "highest-ranked events.",
+                ),
+                unsafe_allow_html=True,
+            )
             st.dataframe(pd.DataFrame(findings), width="stretch", hide_index=True)
     st.caption(
-        "False-positive rates treat events without an exact label match as "
-        "negative for calculation; some may be malicious but unlabeled."
+        "False-positive rates treat events without an exact label match as negative "
+        "for calculation; some may be malicious but unlabeled."
     )
 
     if known_positives < 20:
         st.markdown(
-            f'<div class="teqo-research-note"><strong>Small label sample:</strong> '
-            f'the holdout contains only {known_positives} known positive labels. '
-            "These results are illustrative, not a stable measure of detection "
-            "performance. Events without a ground-truth match are not confirmed benign."
-            "</div>",
+            callout(
+                "Small label sample",
+                f"The holdout contains only {known_positives} known positive labels. "
+                "These results are illustrative, not a stable measure of detection "
+                "performance. Events without a ground-truth match are not confirmed benign.",
+                tone="warning",
+            ),
             unsafe_allow_html=True,
         )
     elif report.get("dataset_profile") == "synthetic":
-        st.warning(
-            "This is generated demonstration activity; its metrics do not establish "
-            "detection quality on LANL data or real organization networks."
+        st.markdown(
+            callout(
+                "Synthetic demonstration",
+                "This is generated demonstration activity; its metrics do not establish "
+                "detection quality on LANL data or real organization networks.",
+                tone="warning",
+            ),
+            unsafe_allow_html=True,
         )
-    st.info(
-        "The report evaluates raw ranking scores against known labels, not the "
-        "rule-adjusted risk score. A high score is a review priority—not a "
-        "probability of compromise."
+    st.markdown(
+        callout(
+            "Score semantics",
+            "The report evaluates raw ranking scores against known labels, not the "
+            "rule-adjusted risk score. A high score is a review priority—not a "
+            "probability of compromise.",
+        ),
+        unsafe_allow_html=True,
     )
 
     walk_forward = report.get("walk_forward_validation", {})
     folds = walk_forward.get("folds", []) if isinstance(walk_forward, dict) else []
     if folds:
-        st.markdown("#### Earlier chronological validation folds")
+        st.markdown(
+            section_header(
+                "VALIDATION",
+                "Earlier chronological validation folds",
+                "Expanding-window folds compare the same approaches without training "
+                "on future events.",
+            ),
+            unsafe_allow_html=True,
+        )
         fold_rows = []
         for fold in folds:
             fold_models = fold.get("models", {})
@@ -1471,104 +1366,129 @@ def render_data_quality(clean, data, report, provenance_issues):
         if fold_rows:
             st.dataframe(pd.DataFrame(fold_rows), width="stretch", hide_index=True)
             st.caption(
-                "Each fold uses the same chronological windows across the baseline "
-                "and available models. Folds without known positives are not "
-                "evaluable for detection quality."
+                "Each fold uses the same chronological windows across the baseline and "
+                "available models. Folds without known positives are not evaluable for "
+                "detection quality."
             )
 
-    st.markdown("#### Activity overview")
-    distribution = data["risk_level"].value_counts().reindex(
-        ["High", "Medium", "Low"], fill_value=0
-    )
-    distribution.index = ["Priority review", "Review", "Routine"]
-    st.bar_chart(distribution, color=BRAND)
+    if "risk_level" in data.columns and not data.empty:
+        st.markdown(
+            section_header(
+                "DISTRIBUTION",
+                "Activity overview",
+                "How the loaded events fall across the priority review bands.",
+            ),
+            unsafe_allow_html=True,
+        )
+        distribution = data["risk_level"].value_counts().reindex(
+            ["High", "Medium", "Low"], fill_value=0
+        )
+        distribution.index = ["Priority review", "Review", "Routine"]
+        st.bar_chart(distribution, color=BRAND, height=240)
+    else:
+        st.caption(
+            "The activity distribution will appear after the demo pipeline has produced "
+            "risk results."
+        )
 
 
 def render_model_intelligence():
-    st.markdown("### What the models can—and cannot—say")
     st.markdown(
-        "The detector learns a ranking of unusual authentication events without "
-        "training on the malicious-activity labels. Ground-truth labels are kept "
-        "for evaluation after the chronological split."
-    )
-    st.markdown(
-        '<div class="teqo-research-note"><strong>Interpretation:</strong> an '
-        "anomaly score is not a probability that an account is compromised. "
-        "Novelty can be legitimate, and suspicious activity can look familiar.</div>",
+        callout(
+            "What a score means",
+            "An anomaly score is not a probability that an account is compromised. "
+            "Novelty can be legitimate, and suspicious activity can look familiar. "
+            "Every ranking is a review priority for a human analyst.",
+        ),
         unsafe_allow_html=True,
     )
 
-    st.markdown("#### Event signals")
-    signals = [
-        (
-            "Authentication outcome",
-            "Whether the attempt succeeded or failed. Failures are a model feature "
-            "and risk factor, but never create observed device-graph edges.",
+    st.markdown(
+        section_header(
+            "EVENT SIGNALS",
+            "What the detector reads",
+            "The current feature set is built from authentication outcomes, novelty, "
+            "prior-hour activity, and encoded action categories.",
+        )
+        + feature_grid(
+            [
+                {
+                    "icon": "alert",
+                    "title": "Authentication outcome",
+                    "body": "Success or failure is a model feature and risk factor. "
+                    "Failures never create observed device-graph edges.",
+                },
+                {
+                    "icon": "detect",
+                    "title": "First-seen destination",
+                    "body": "Whether this account-to-destination pairing appears for the "
+                    "first time in the available chronology.",
+                },
+                {
+                    "icon": "clock",
+                    "title": "Prior-hour activity",
+                    "body": "The account's rolling authentication count over the preceding "
+                    "hour. Events at the same timestamp do not inflate one another.",
+                },
+                {
+                    "icon": "layers",
+                    "title": "Authentication method",
+                    "body": "One-hot encoded categories derived from the event action. "
+                    "The model uses elapsed time, not invented calendar-hour features.",
+                },
+            ]
         ),
-        (
-            "First-seen destination",
-            "Whether this user-to-destination pairing appears for the first time "
-            "in the available chronology.",
-        ),
-        (
-            "Prior-hour activity",
-            "The user's rolling authentication count over the preceding hour; "
-            "events at the same timestamp do not inflate one another.",
-        ),
-        (
-            "Authentication and logon type",
-            "One-hot encoded categories derived from the event's action field. "
-            "The model uses elapsed time, not invented calendar-hour features.",
-        ),
-    ]
-    columns = st.columns(2, gap="medium")
-    for index, (title, description) in enumerate(signals):
-        with columns[index % 2]:
-            st.markdown(
-                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
-                f"<p>{html.escape(description)}</p></div>",
-                unsafe_allow_html=True,
-            )
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("#### Compared ranking approaches")
-    models = [
+    st.markdown(
+        section_header(
+            "RANKING APPROACHES",
+            "Three ways to prioritize",
+            "The prototype keeps a transparent baseline alongside the unsupervised "
+            "models so their value can be tested.",
+        ),
+        unsafe_allow_html=True,
+    )
+    model_cards = [
         (
-            "First-seen destination baseline",
-            "A simple behavior baseline that prioritizes first-time user-to-destination "
-            "pairs. It is included to make the value of more complex models testable.",
+            "Baseline",
+            "accent",
+            "First-seen destination",
+            "A simple behavior baseline that prioritizes first-time account-to-destination "
+            "pairs. It exists to make more complex model behavior testable.",
         ),
         (
+            "Primary",
+            "info",
             "Isolation Forest",
             "The primary unsupervised model. It is fitted on training-period event "
-            "features and scores events by isolation-based anomaly ranking.",
+            "features and ranks events by isolation-based anomaly score.",
         ),
         (
-            "Optional autoencoder",
+            "Optional",
+            "neutral",
+            "Autoencoder",
             "A small reconstruction model trained in bounded batches. Higher "
-            "reconstruction error contributes to the anomaly ranking; the scores "
-            "are not calibrated probabilities.",
+            "reconstruction error contributes to the ranking; scores are not calibrated "
+            "probabilities.",
         ),
     ]
     columns = st.columns(3, gap="medium")
-    for column, (title, description) in zip(columns, models):
+    for column, (tag, tone, title, body) in zip(columns, model_cards):
         with column:
             st.markdown(
-                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
-                f"<p>{html.escape(description)}</p></div>",
+                '<div class="teqo-contribution"><div class="teqo-badge-row">'
+                + badge(tag, tone)
+                + f"</div><strong>{html.escape(title)}</strong>"
+                + f"<p>{html.escape(body)}</p></div>",
                 unsafe_allow_html=True,
             )
 
-    st.markdown("#### Turning scores into review context")
-    st.markdown(
-        "A transparent risk layer adds independently checkable factors—new "
-        "destination, sensitive asset, failed authentication, and burst activity—"
-        "to the normalized anomaly percentile. The analyst view shows those "
-        "reasons and exact interventional Shapley contributions for the "
-        "Isolation Forest anomaly score. Neither step automates a response."
-    )
     render_process_diagram(
         "From event to human review",
-        "Each stage adds context; it does not make an automated access or containment decision.",
+        "Each stage adds context; none of them makes an automated access or "
+        "containment decision.",
         [
             ("Authentication event", "Common fields and observed outcome."),
             ("Event features", "Novelty, prior-hour volume, method and outcome."),
@@ -1576,6 +1496,23 @@ def render_model_intelligence():
             ("Risk context", "Percentile plus transparent, named factors."),
             ("Analyst review", "Event context, observed paths and case decision."),
         ],
+        kicker="REVIEW PIPELINE",
+    )
+
+    st.markdown(
+        callout(
+            "Explainability",
+            "The analyst view exposes named risk factors and exact interventional "
+            "Shapley contributions for the Isolation Forest anomaly score. Attributions "
+            "describe this model output relative to a training background; they are not "
+            "causal effects or probabilities.",
+        ),
+        unsafe_allow_html=True,
+    )
+    st.page_link(
+        results_page,
+        label="Review measured model evaluation",
+        icon=":material/analytics:",
     )
 
 
@@ -1634,68 +1571,182 @@ RESEARCH_CONTRIBUTIONS = [
 
 
 def render_research_and_evaluation(report, data, provenance_issues):
-    st.markdown("### Research question")
     st.markdown(
-        "Can unsupervised authentication-anomaly rankings help prioritize known "
-        "red-team events in a later chronological period, compared with a "
-        "first-seen-destination baseline?"
+        '<div class="teqo-panel"><div class="teqo-section-kicker">RESEARCH QUESTION</div>'
+        '<p class="teqo-question">Can unsupervised authentication-anomaly rankings help '
+        "prioritize known red-team events in a later chronological period, compared with "
+        "a first-seen-destination baseline?</p></div>",
+        unsafe_allow_html=True,
     )
-    st.markdown("### Evaluation design")
+
     render_process_diagram(
         "Train and evaluate without time leakage",
-        "Labels are evaluation evidence only; they are not inputs to unsupervised model fitting.",
+        "Labels are evaluation evidence only; they are not inputs to unsupervised model "
+        "fitting.",
         [
             ("Earlier events", "Fit feature transforms and unsupervised model(s)."),
             ("Later holdout", "Keep a chronological period separate from training."),
             ("Rank events", "Score holdout events using models fitted on earlier data."),
             ("Compare", "Measure agreement with known labels at fixed review budgets."),
         ],
+        kicker="EVALUATION DESIGN",
     )
 
     if report is None or provenance_issues:
         render_data_quality(pd.DataFrame(), data, None, provenance_issues)
     else:
         split = report.get("split", {})
-        st.markdown("### Evidence in the current run")
-        metadata_a, metadata_b, metadata_c = st.columns(3)
-        metadata_a.metric("Dataset profile", str(report.get("dataset_profile", "unknown")))
-        metadata_b.metric(
-            "Training events",
-            f"{int(split.get('training_events', 0)):,}",
-            help="Earlier chronological portion used to fit the models.",
+        input_metadata = report.get("input", {})
+        input_hash = (
+            str(input_metadata.get("sha256", "unavailable"))
+            if isinstance(input_metadata, dict)
+            else "unavailable"
         )
-        metadata_c.metric(
-            "Holdout positive labels",
-            f"{int(split.get('test_known_positive_labels', 0)):,}",
-            help="Exact ground-truth matches in the later test period.",
+        reproducibility = report.get("reproducibility", {})
+        packages = (
+            reproducibility.get("packages", {})
+            if isinstance(reproducibility, dict)
+            else {}
+        )
+        package_text = ", ".join(
+            f"{name} {version}" for name, version in packages.items()
+        ) or "unavailable"
+        walk_forward = report.get("walk_forward_validation", {})
+        completed_folds = (
+            f"{int(walk_forward.get('completed_folds', 0))} / "
+            f"{int(walk_forward.get('requested_folds', 0))}"
+            if isinstance(walk_forward, dict)
+            else "unavailable"
+        )
+
+        st.markdown(
+            metric_grid(
+                [
+                    {
+                        "label": "Dataset profile",
+                        "value": str(report.get("dataset_profile", "unknown")),
+                        "hint": "Input profile used by the pipeline",
+                        "tone": "info",
+                        "size": "compact",
+                    },
+                    {
+                        "label": "Training events",
+                        "value": f"{int(split.get('training_events', 0)):,}",
+                        "hint": "Earlier chronological portion",
+                        "tone": "blue",
+                    },
+                    {
+                        "label": "Holdout events",
+                        "value": f"{int(split.get('test_events', 0)):,}",
+                        "hint": "Later held-out period",
+                        "tone": "default",
+                    },
+                    {
+                        "label": "Known positive labels",
+                        "value": f"{int(split.get('test_known_positive_labels', 0)):,}",
+                        "hint": "Exact ground-truth matches",
+                        "tone": "warning",
+                    },
+                    {
+                        "label": "Walk-forward folds",
+                        "value": completed_folds,
+                        "hint": "Completed / requested",
+                        "tone": "default",
+                        "size": "compact",
+                    },
+                ]
+            ),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            callout(
+                "Provenance verified",
+                "The evaluation report matches the loaded activity sample and the current "
+                "pipeline schema.",
+                tone="success",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            provenance_block(
+                [
+                    ("Run ID", report.get("run_id", "unavailable")),
+                    ("Input SHA-256", input_hash[:20] + ("…" if len(input_hash) > 20 else "")),
+                    ("Schema version", report.get("schema_version", "unavailable")),
+                    ("Packages", package_text),
+                ]
+            ),
+            unsafe_allow_html=True,
         )
         render_data_quality(pd.DataFrame(), data, report, provenance_issues)
 
-    st.markdown("### Limitations and responsible interpretation")
     st.markdown(
-        "- Ground truth is exact-match red-team labeling; an event without a label "
-        "match may still be malicious.\n"
-        "- A small number of known positives cannot support stable performance claims.\n"
-        "- Synthetic demonstrations validate the pipeline and evaluation code, "
-        "not real-world detection quality.\n"
-        "- Risk scores are prioritization values, not calibrated probabilities; "
-        "analysts remain responsible for case decisions.\n"
-        "- The current ingestion profiles are synthetic and LANL; arbitrary "
-        "organization exports need an approved, validated adapter."
+        section_header(
+            "INTERPRETATION",
+            "Limitations and responsible interpretation",
+            "These constraints apply to every metric and ranking on this page.",
+        )
+        + limitations(
+            [
+                "Ground truth is exact-match red-team labeling; an event without a label "
+                "match may still be malicious.",
+                "A small number of known positives cannot support stable performance claims.",
+                "Synthetic demonstrations validate the pipeline and evaluation code, not "
+                "real-world detection quality.",
+                "Risk scores are prioritization values, not calibrated probabilities; "
+                "analysts remain responsible for case decisions.",
+                "The current ingestion profiles are synthetic and LANL; arbitrary "
+                "organization exports need an approved, validated adapter.",
+            ]
+        ),
+        unsafe_allow_html=True,
     )
 
+
 def render_architecture():
-    st.title("System architecture")
-    st.caption(
-        "A view of the current local research implementation and how its components connect."
-    )
     st.markdown(
-        "The diagrams below describe the current local research implementation, "
-        "not a hosted or live-monitoring deployment."
+        page_header(
+            "SYSTEM · ARCHITECTURE",
+            "System architecture",
+            "How the local research prototype moves from authentication activity to "
+            "analyst-owned review.",
+            DATASET,
+            "Local implementation",
+        ),
+        unsafe_allow_html=True,
     )
+
+    st.markdown(
+        feature_grid(
+            [
+                {
+                    "icon": "database",
+                    "title": "Ingestion and preparation",
+                    "body": "Supported synthetic and LANL profiles map to one event schema; "
+                    "compressed logs are streamed with a bounded row count.",
+                },
+                {
+                    "icon": "brain",
+                    "title": "Detection and risk",
+                    "body": "Unsupervised ranking, a first-seen baseline, and transparent "
+                    "named risk factors produce a review priority.",
+                },
+                {
+                    "icon": "investigate",
+                    "title": "Analyst workspace",
+                    "body": "Evidence, exact Shapley explanations, observed paths, and "
+                    "local case records support a documented human decision.",
+                },
+            ]
+        ),
+        unsafe_allow_html=True,
+    )
+
     render_process_diagram(
         "Implemented data and review flow",
-        "Artifacts and processing follow the current pipeline modules and dashboard workflow.",
+        "Artifacts and processing follow the current pipeline modules and dashboard "
+        "workflow.",
         [
             ("Profile input", "Synthetic demo or an authorized LANL sample."),
             ("Data preparation", "Stream, normalize and label known matches."),
@@ -1703,6 +1754,7 @@ def render_architecture():
             ("Model and risk", "Unsupervised ranking with transparent risk factors."),
             ("Dashboard", "Filter, investigate, explore observed paths and manage cases."),
         ],
+        kicker="DATA FLOW",
     )
     render_process_diagram(
         "Observed-path data flow",
@@ -1711,9 +1763,12 @@ def render_architecture():
             ("Clean events", "Read device, destination and outcome."),
             ("Successful only", "Failed attempts are excluded from graph edges."),
             ("Directed graph", "Repeated successful observations increase edge weight."),
-            ("Bounded path query", "Shortest paths are limited to four hops and ranked by asset criticality."),
-            ("Analyst context", "Observed sample paths—not proof of reachability or authorization."),
+            ("Bounded path query", "Shortest paths are limited to four hops and ranked by "
+             "asset criticality."),
+            ("Analyst context", "Observed sample paths—not proof of reachability or "
+             "authorization."),
         ],
+        kicker="OBSERVED PATHS",
     )
     render_process_diagram(
         "Local analyst case workflow",
@@ -1724,45 +1779,57 @@ def render_architecture():
             ("Persist locally", "SQLite stores current case records on this computer."),
             ("Audit changes", "Changed case state is recorded in a local audit history."),
         ],
+        kicker="CASE WORKFLOW",
     )
-    st.markdown("### Research and engineering contributions")
-    st.caption(
-        "These are implementation contributions of the prototype, not claims of "
-        "validated operational effectiveness."
-    )
-    columns = st.columns(2, gap="medium")
-    for index, (title, description, source) in enumerate(RESEARCH_CONTRIBUTIONS):
-        with columns[index % 2]:
-            st.markdown(
-                f'<div class="teqo-contribution"><strong>{html.escape(title)}</strong>'
-                f"<p>{html.escape(description)}</p>"
-                f"<small>{html.escape(source)}</small></div>",
-                unsafe_allow_html=True,
-            )
+
     st.markdown(
-        '<div class="teqo-research-note"><strong>Local prototype:</strong> '
-        "case notes are stored unencrypted on this computer. Do not enter "
-        "sensitive production information. The project is not a production "
-        "security product and does not provide live monitoring or automated response."
-        "</div>",
+        section_header(
+            "ENGINEERING",
+            "Research and engineering contributions",
+            "These are implementation contributions of the prototype, not claims of "
+            "validated operational effectiveness.",
+        ),
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        contribution_grid(RESEARCH_CONTRIBUTIONS),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        callout(
+            "Local prototype",
+            "Case notes are stored unencrypted on this computer. Do not enter sensitive "
+            "production information. The project is not a production security product "
+            "and does not provide live monitoring or automated response.",
+            tone="warning",
+        ),
         unsafe_allow_html=True,
     )
 
 
 PAGE_TITLES = {
-    "Overview": "Operations overview",
+    "Overview": "Security overview",
     "Investigate": "Alert investigation",
-    "Observed Paths": "Observed paths",
-    "AI Intelligence": "AI model intelligence",
-    "Research & Evaluation": "Research and evaluation",
+    "Observed Paths": "Cyber digital twin",
+    "AI Intelligence": "AI intelligence",
+    "Research & Evaluation": "Model evaluation",
 }
 
 PAGE_DESCRIPTIONS = {
-    "Overview": "A concise view of the current event queue and review workload.",
-    "Investigate": "Inspect event evidence and record an analyst-owned case decision.",
-    "Observed Paths": "Explore successful authentication relationships in the loaded sample.",
-    "AI Intelligence": "Understand the implemented features, ranking approaches and score interpretation.",
-    "Research & Evaluation": "Review the chronological evaluation design, measured evidence and limitations.",
+    "Overview": "Alert volume, severity mix, and the review queue for the loaded authentication sample.",
+    "Investigate": "Inspect evidence, explanations, and record an analyst-owned case decision.",
+    "Observed Paths": "Explore successful authentication relationships and where activity was observed next.",
+    "AI Intelligence": "How the implemented detectors work, what signals they use, and how to read a score.",
+    "Research & Evaluation": "Chronological validation, measured ranking evidence, and responsible limitations.",
+}
+
+PAGE_KICKERS = {
+    "Overview": "WORKSPACE · SECURITY OVERVIEW",
+    "Investigate": "WORKSPACE · ALERT INVESTIGATION",
+    "Observed Paths": "WORKSPACE · CYBER DIGITAL TWIN",
+    "AI Intelligence": "INTELLIGENCE · AI INTELLIGENCE",
+    "Research & Evaluation": "INTELLIGENCE · MODEL EVALUATION",
 }
 
 
@@ -1776,267 +1843,244 @@ def render_demo_setup(button_key):
     if os.path.exists(CLEAN_FILE) and os.path.exists(RISK_FILE):
         return
 
-    st.markdown("### Try the reproducible model evaluation")
-    st.markdown(
-        "Generate a small, deterministic synthetic authentication dataset with "
-        "known red-team labels, then run the same chronological model pipeline "
-        "used by the project. Nothing needs to be uploaded."
-    )
-    st.caption(
-        "This is a software demonstration, not evidence of performance on real "
-        "organizations. Generated files and case records on Community Cloud "
-        "are temporary."
-    )
-    if st.button(
-        "Generate demo data and run evaluation",
-        key=button_key,
-        type="primary",
-    ):
-        try:
-            with st.status("Preparing the synthetic evaluation...", expanded=True) as status:
-                run_synthetic_demo(
-                    lambda step: st.write(f"Running `python -m {step}`")
-                )
-                status.update(
-                    label="Synthetic evaluation is ready",
-                    state="complete",
-                    expanded=False,
-                )
-        except (RuntimeError, FileNotFoundError, TimeoutError) as error:
-            st.error("The synthetic evaluation could not be prepared.")
-            st.code(str(error))
-            return
-
-        st.success(
-            "Demo data and evaluation results are ready. Open Research & Evaluation "
-            "to inspect the metrics, then use Overview and Investigate to explore events."
+    with st.container(key="teqo-demo-setup"):
+        st.markdown(
+            '<div class="teqo-demo-panel">'
+            '<div class="teqo-section-kicker">DEMO DATA</div>'
+            "<h3>Run the reproducible evaluation</h3>"
+            "<p>Generate a small deterministic synthetic authentication dataset with "
+            "known red-team labels, then run the same chronological pipeline used by "
+            "the project. Nothing needs to be uploaded.</p></div>",
+            unsafe_allow_html=True,
         )
-        st.rerun()
+        st.caption(
+            "This is a software demonstration, not evidence of performance on real "
+            "organizations. Generated files and case records on Community Cloud are "
+            "temporary."
+        )
+        if st.button(
+            "Generate demo data and run evaluation",
+            key=button_key,
+            type="primary",
+        ):
+            try:
+                with st.status(
+                    "Preparing the synthetic evaluation...", expanded=True
+                ) as status:
+                    run_synthetic_demo(
+                        lambda step: st.write(f"Running `python -m {step}`")
+                    )
+                    status.update(
+                        label="Synthetic evaluation is ready",
+                        state="complete",
+                        expanded=False,
+                    )
+            except (RuntimeError, FileNotFoundError, TimeoutError) as error:
+                st.error("The synthetic evaluation could not be prepared.")
+                st.code(str(error))
+                return
+
+            st.success(
+                "Demo data and evaluation results are ready. Open Model Evaluation to "
+                "inspect the metrics, then use Security Overview and Alert Investigation "
+                "to explore events."
+            )
+            st.rerun()
 
 
 def render_homepage():
     with open(LOGO_FILE, "rb") as logo_file:
         logo_data = base64.b64encode(logo_file.read()).decode("ascii")
-    logo_markup = (
-        f'<img src="data:image/png;base64,{logo_data}" alt="TeqoAI logo">'
+    logo_markup = f'<img src="data:image/png;base64,{logo_data}" alt="TeqoAI emblem">'
+    dataset_label = (
+        "Generated demonstration activity"
+        if DATASET == "synthetic"
+        else "Authorized LANL sample"
     )
-    features = [
-        (
-            "01 · Detect",
-            "Prioritize unusual activity",
-            "Anomaly rankings and a simple behavior baseline help bring potentially unusual authentication events into focus.",
-        ),
-        (
-            "02 · Investigate",
-            "Understand each alert",
-            "Review event context, contributing risk signals, related activity, and an analyst-owned case decision.",
-        ),
-        (
-            "03 · Connect",
-            "Explore observed relationships",
-            "See device-to-device links found in the event sample. These links are observations—not proof of reachability or access.",
-        ),
-    ]
-    feature_markup = "".join(
-        f'<article class="teqo-home-feature">'
-        f'<div class="teqo-section-kicker">{html.escape(kicker)}</div>'
-        f'<h3>{html.escape(title)}</h3>'
-        f'<p>{html.escape(description)}</p></article>'
-        for kicker, title, description in features
-    )
-    creator_paragraphs = [
-        "I am a passionate and technology-driven student with a strong interest in "
-        "AI, cybersecurity, and software development. I am particularly interested "
-        "in exploring how emerging technologies can address real-world challenges "
-        "and contribute to building a safer digital environment. This passion "
-        "motivated me to participate in the INSA Summer Camp, even while balancing "
-        "the academic responsibilities of being a Grade 12 student preparing for "
-        "the national examination.",
-        "I enjoy researching new technologies, developing innovative solutions, "
-        "and transforming complex ideas into practical applications. Through the "
-        "INSA Summer Camp, I have been expanding my technical knowledge and "
-        "exploring the role of artificial intelligence in modern cybersecurity.",
-        "My project, TeqoAI, focuses on intelligent cybersecurity through "
-        "specialized AI models, risk analysis, and explainable artificial "
-        "intelligence. I aspire to develop innovative solutions that strengthen "
-        "digital security across sectors such as education, telecommunications, "
-        "finance, healthcare, and critical infrastructure. My long-term goal "
-        "is to become a skilled technology innovator who contributes to Ethiopia's "
-        "digital transformation through research, creativity, and impactful "
-        "technological solutions.",
-    ]
-    creator_markup = "".join(
-        f"<p>{html.escape(paragraph)}</p>" for paragraph in creator_paragraphs
+    creator_contacts = contact_list(
+        [
+            {
+                "href": "mailto:hobbieyano@gmail.com",
+                "icon": "mail",
+                "label": "hobbieyano@gmail.com",
+            },
+            {
+                "href": "https://t.me/hobbie111",
+                "icon": "telegram",
+                "label": "Telegram · @hobbie111",
+                "external": True,
+            },
+            {
+                "href": "https://github.com/Juna-111",
+                "icon": "github",
+                "label": "GitHub · Juna-111",
+                "external": True,
+            },
+            {
+                "href": "tel:+251962703558",
+                "icon": "phone",
+                "label": "+251 96 270 3558",
+            },
+        ]
     )
 
     with st.container(key="teqo-home"):
-        hero_text, hero_logo = st.columns([1.7, .8], gap="large")
-        with hero_text:
-            st.markdown(
-                '<section class="teqo-home-hero">'
-                '<div class="teqo-section-kicker">INSA SUMMER CAMP · GRADUATION PROJECT</div>'
-                '<h1>Welcome to <span style="color:#38BDF8">TeqoAI</span></h1>'
-                '<p>Making authentication security easier to understand, investigate, '
-                'and improve with explainable artificial intelligence.</p>'
-                '<p>TeqoAI explores how unusual login behavior can be prioritized for '
-                'human review—connecting anomaly signals with clear evidence and '
-                'observed device relationships.</p>'
-                '</section>',
-                unsafe_allow_html=True,
+        st.markdown(
+            '<section class="teqo-home-hero">'
+            '<div>'
+            '<div class="teqo-home-meta">'
+            '<span class="teqo-eyebrow">INSA SUMMER CAMP · GRADUATION PROJECT</span>'
+            + environment_badge(DATASET)
+            + "</div>"
+            '<h1 class="teqo-home-title">Explainable <span>authentication triage</span></h1>'
+            '<p class="teqo-home-lead">TeqoAI uses explainable AI to identify unusual '
+            "authentication behaviour, prioritize suspicious events, and support "
+            "evidence-based security investigations.</p>"
+            '<p class="teqo-home-sub">A local research prototype with the analyst in '
+            "control: every ranking is a review priority, never an automated decision.</p>"
+            '<div class="teqo-home-tags">'
+            + badge("Explainable AI", "info")
+            + badge("Analyst-led", "neutral")
+            + badge("Local prototype", "neutral")
+            + "</div></div>"
+            f'<div class="teqo-home-emblem"><div class="teqo-emblem">{logo_markup}</div></div>'
+            "</section>",
+            unsafe_allow_html=True,
+        )
+
+        with st.container(horizontal=True, key="teqo-home-ctas", gap="small"):
+            st.page_link(
+                overview_page,
+                label="Open security workspace",
+                icon=":material/shield:",
             )
-        with hero_logo:
-            st.markdown(
-                f'<div class="teqo-home-hero-logo">{logo_markup}</div>',
-                unsafe_allow_html=True,
+            st.page_link(
+                intelligence_page,
+                label="Explore AI intelligence",
+                icon=":material/psychology:",
             )
 
-        cta_workspace, cta_results = st.columns([1, 1], gap="small")
-        cta_workspace.page_link(
-            overview_page,
-            label="Explore the dashboard",
-            icon=":material/arrow_forward:",
-        )
-        cta_results.page_link(
-            results_page,
-            label="See project results",
-            icon=":material/analytics:",
-        )
         render_demo_setup("teqo-demo-build-home")
 
         st.markdown(
             '<section class="teqo-home-section">'
-            '<div class="teqo-section-kicker">THE PROJECT</div>'
-            '<h2>Explainable authentication triage</h2>'
-            '<p class="teqo-home-copy">A research prototype that ranks unusual '
-            'authentication activity, explains contributing signals, and supports '
-            'analyst-led investigation.</p>'
-            '<div class="teqo-home-facts">'
-            '<div><span>Focus</span> · Authentication activity</div>'
-            '<div><span>Approach</span> · Unsupervised anomaly ranking</div>'
-            '<div><span>Decision-maker</span> · Human analyst</div>'
-            '</div></section>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            '<section class="teqo-home-section">'
-            '<div class="teqo-section-kicker">WHAT YOU CAN EXPLORE</div>'
-            '<div class="teqo-home-features">'
-            + feature_markup
-            + "</div></section>",
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            '<section class="teqo-home-section">'
-            '<div class="teqo-section-kicker">THE APPROACH</div>'
-            '<h2>How the prototype works</h2>'
-            '<ol class="teqo-home-steps">'
-            '<li><span class="teqo-home-number">01</span><strong>Activity</strong>'
-            '<span>Read authentication events.</span></li>'
-            '<li><span class="teqo-home-number">02</span><strong>Prioritize</strong>'
-            '<span>Rank unusual patterns and add transparent risk factors.</span></li>'
-            '<li><span class="teqo-home-number">03</span><strong>Investigate</strong>'
-            '<span>Give analysts context and observed relationships.</span></li>'
-            '<li><span class="teqo-home-number">04</span><strong>Evaluate</strong>'
-            '<span>Compare rankings with known labels when available.</span></li>'
-            '</ol></section>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            '<section class="teqo-home-section">'
-            '<div class="teqo-section-kicker">MEET THE CREATOR</div>'
-            '<h2>Hobby Yano</h2>'
-            f'<div class="teqo-home-about">{creator_markup}</div>'
-            '</section>',
-            unsafe_allow_html=True,
-        )
-
-        with st.container(key="teqo-home-footer"):
-            footer_brand, footer_content = st.columns([.8, 2.2], gap="large")
-            with footer_brand:
-                st.markdown(
-                    '<div class="teqo-home-footer-brand">'
-                    + logo_markup
-                    + "</div>",
-                    unsafe_allow_html=True,
-                )
-            with footer_content:
-                st.markdown(
-                    '<div class="teqo-home-footer-content">'
-                    '<div class="teqo-section-kicker">CONNECT</div>'
-                    '<h2>Let’s build safer technology</h2>'
-                    '<p>Reach out for questions, feedback, or collaboration.</p>'
-                    '<div class="teqo-home-footer-contacts">'
-                    '<a href="mailto:hobbieyano@gmail.com">'
-                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
-                    '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/>'
-                    '<path d="m3 7 9 6 9-6"/></svg></span>'
-                    'Email · hobbieyano@gmail.com</a>'
-                    '<a href="https://t.me/hobbie111" target="_blank" rel="noopener noreferrer">'
-                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
-                    '<svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/>'
-                    '<path d="M22 2 11 13"/></svg></span>'
-                    'Telegram · @hobbie111</a>'
-                    '<a href="https://github.com/Juna-111" target="_blank" '
-                    'rel="noopener noreferrer">'
-                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
-                    '<svg viewBox="0 0 24 24"><path d="m8 9-3 3 3 3M16 9l3 3-3 3"/>'
-                    '<path d="m14 5-4 14"/></svg></span>'
-                    'GitHub · github.com/Juna-111</a>'
-                    '<a href="tel:+251962703558">'
-                    '<span class="teqo-home-contact-icon" aria-hidden="true">'
-                    '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 '
-                    '19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 '
-                    '2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.9L7.7 '
-                    '9.7a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.9-.6l2.8.5a2 2 0 0 1 '
-                    '1.7 2.6Z"/></svg></span>'
-                    'Phone · (+251962703558)</a>'
-                    '</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.page_link(
-                    architecture_page,
-                    label="Explore the system architecture and research contributions",
-                    icon=":material/schema:",
-                )
-                st.markdown(
-                    '<p class="teqo-home-footer-note"><strong>Research prototype, '
-                    'not a production security product.</strong> '
-                    + (
-                        "This build uses generated demonstration activity; its results do not "
-                        "establish accuracy on real networks. TeqoAI supports analyst review "
-                        "and does not perform automated response."
-                        if DATASET == "synthetic"
-                        else
-                        "Results depend on the selected dataset and available confirmed labels. "
-                        "Scores are review priorities, not probabilities, and TeqoAI does not "
-                        "perform automated response."
-                    )
-                    + "</p>",
-                    unsafe_allow_html=True,
-                )
-            st.markdown(
-                '<div class="teqo-home-footer-bottom">'
-                'TEQOAI · Created by Hobby Yano · INSA Summer Camp</div>',
-                unsafe_allow_html=True,
+            + section_header(
+                "CAPABILITIES",
+                "Detect. Investigate. Connect.",
+                "Three operational surfaces built on the same authentication evidence.",
             )
+            + feature_grid(
+                [
+                    {
+                        "icon": "detect",
+                        "title": "Detect",
+                        "body": "Unsupervised ranking surfaces unusual authentication "
+                        "events without training on malicious-activity labels.",
+                    },
+                    {
+                        "icon": "investigate",
+                        "title": "Investigate",
+                        "body": "Alert context, transparent risk factors, and exact feature "
+                        "attributions support a documented case decision.",
+                    },
+                    {
+                        "icon": "connect",
+                        "title": "Connect",
+                        "body": "Observed device-to-device authentication links provide "
+                        "investigation context—not proof of reachability.",
+                    },
+                ]
+            )
+            + "</section>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<section class="teqo-home-section">'
+            + section_header(
+                "APPROACH",
+                "How the prototype works",
+                "The pipeline keeps labels out of model fitting and leaves response "
+                "decisions with the analyst.",
+            )
+            + '<ol class="teqo-process">'
+            "<li><strong>Read activity</strong><span>Normalize authentication events from "
+            "the loaded sample.</span></li>"
+            "<li><strong>Prioritize</strong><span>Rank unusual behavior and add named, "
+            "checkable risk factors.</span></li>"
+            "<li><strong>Investigate</strong><span>Review context, explanations, observed "
+            "paths, and record a case decision.</span></li>"
+            "<li><strong>Evaluate</strong><span>Compare rankings with known labels at "
+            "fixed review budgets.</span></li>"
+            "</ol>"
+            '<div class="teqo-home-facts">'
+            f"<div><span>Dataset</span> · {html.escape(dataset_label)}</div>"
+            "<div><span>Approach</span> · Unsupervised anomaly ranking</div>"
+            "<div><span>Decision-maker</span> · Human analyst</div>"
+            "</div></section>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<div class="teqo-about-strip">'
+            "<div>"
+            '<div class="teqo-section-kicker">ABOUT THE PROJECT</div>'
+            "<h2>Built by Hobby Yano</h2>"
+            "<p>TeqoAI was developed as an INSA Summer Camp graduation project exploring "
+            "explainable AI for authentication security. The prototype combines "
+            "unsupervised anomaly ranking, transparent risk factors, analyst-owned case "
+            "records, and evidence-bounded relationship views.</p>"
+            + creator_contacts
+            + "</div>"
+            '<div class="teqo-about-note">'
+            "<strong>Research prototype, not a production security product.</strong>"
+            "<p>"
+            + (
+                "This build uses generated demonstration activity; its results do not "
+                "establish accuracy on real networks. TeqoAI supports analyst review and "
+                "does not perform automated response."
+                if DATASET == "synthetic"
+                else "Results depend on the selected dataset and available confirmed "
+                "labels. Scores are review priorities, not probabilities, and TeqoAI "
+                "does not perform automated response."
+            )
+            + "</p></div></div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<div class="teqo-home-footer">'
+            "<span>TEQOAI · Explainable authentication triage</span>"
+            "<span>INSA Summer Camp · Created by Hobby Yano</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def render_analyst_page(selected_page):
     if not os.path.exists(CLEAN_FILE) or not os.path.exists(RISK_FILE):
-        st.title(PAGE_TITLES[selected_page])
-        st.caption(PAGE_DESCRIPTIONS[selected_page])
+        st.markdown(
+            page_header(
+                PAGE_KICKERS[selected_page],
+                PAGE_TITLES[selected_page],
+                PAGE_DESCRIPTIONS[selected_page],
+                DATASET,
+            ),
+            unsafe_allow_html=True,
+        )
         render_demo_setup(f"teqo-demo-build-{selected_page.lower().replace(' ', '-')}")
         if selected_page == "AI Intelligence":
             render_model_intelligence()
         elif selected_page == "Research & Evaluation":
             render_research_and_evaluation(None, pd.DataFrame(), [])
         else:
-            st.info(
-                "The analyst workspace has no processed events yet. Run the local "
-                "demo pipeline, then return to this page."
+            st.markdown(
+                empty_state(
+                    "No processed events yet",
+                    "Run the local demo pipeline from the About page or the panel above, "
+                    "then return to this page.",
+                ),
+                unsafe_allow_html=True,
             )
         return
 
@@ -2108,16 +2152,15 @@ def render_analyst_page(selected_page):
                     "sensitive production information."
                 )
 
-    title_column, badge_column = st.columns([5, 1])
-    with title_column:
-        st.title(PAGE_TITLES[selected_page])
-        st.caption(PAGE_DESCRIPTIONS[selected_page])
-    with badge_column:
-        if DATASET == "synthetic":
-            st.markdown(
-                '<div class="teqo-data-badge">SYNTHETIC DEMO</div>',
-                unsafe_allow_html=True,
-            )
+    st.markdown(
+        page_header(
+            PAGE_KICKERS[selected_page],
+            PAGE_TITLES[selected_page],
+            PAGE_DESCRIPTIONS[selected_page],
+            DATASET,
+        ),
+        unsafe_allow_html=True,
+    )
 
     if selected_page == "Overview":
         render_overview(risk_events, filtered_events, case_records)
@@ -2149,32 +2192,33 @@ def render_analyst_page(selected_page):
         render_data_quality(clean_events, risk_events, report, provenance_issues)
 
     st.markdown(
-        '<div class="teqo-foot">TEQOAI · Analyst-led security triage</div>',
+        '<div class="teqo-foot">TEQOAI · Local research prototype · '
+        "Analyst review only · No automated response</div>",
         unsafe_allow_html=True,
     )
 
 
 home_page = st.Page(
     render_homepage,
-    title="Home",
-    icon=":material/home:",
+    title="About TeqoAI",
+    icon=":material/info:",
     default=True,
 )
 overview_page = st.Page(
     lambda: render_analyst_page("Overview"),
-    title="Overview",
+    title="Security Overview",
     icon=":material/space_dashboard:",
     url_path="overview",
 )
 investigation_page = st.Page(
     lambda: render_analyst_page("Investigate"),
-    title="Investigate",
+    title="Alert Investigation",
     icon=":material/search:",
     url_path="investigate",
 )
 paths_page = st.Page(
     lambda: render_analyst_page("Observed Paths"),
-    title="Observed Paths",
+    title="Cyber Digital Twin",
     icon=":material/hub:",
     url_path="observed-paths",
 )
@@ -2186,35 +2230,34 @@ intelligence_page = st.Page(
 )
 results_page = st.Page(
     lambda: render_analyst_page("Research & Evaluation"),
-    title="Research & Evaluation",
+    title="Model Evaluation",
     icon=":material/analytics:",
     url_path="research",
 )
 architecture_page = st.Page(
     render_architecture,
-    title="System Architecture",
+    title="Architecture",
     icon=":material/schema:",
     url_path="architecture",
 )
 
 current_page = st.navigation(
     {
-        "Project": [home_page],
-        "Operations": [overview_page, investigation_page],
-        "Intelligence": [paths_page, intelligence_page],
-        "Research": [results_page, architecture_page],
+        "Workspace": [overview_page, investigation_page, paths_page],
+        "Intelligence": [intelligence_page, results_page],
+        "System": [architecture_page, home_page],
     },
     position="sidebar",
 )
+current_page.run()
 with st.sidebar:
-    st.divider()
-    if os.path.exists(LOGO_FILE):
-        st.image(LOGO_FILE, width=46)
+    st.markdown('<div class="teqo-sidebar-rule"></div>', unsafe_allow_html=True)
     st.markdown(
+        '<div class="teqo-sidebar-block">'
         '<div class="teqo-brand">TEQO<span>AI</span></div>'
-        '<div style="color:#B3C1CC;font-size:.76rem;line-height:1.5">'
-        "Explainable authentication triage</div>",
+        '<div class="teqo-sidebar-sub">Explainable authentication triage</div>'
+        f'<div class="teqo-sidebar-status">{environment_badge(DATASET)}</div>'
+        '<div class="teqo-sidebar-note">Local research prototype · Analyst review only · '
+        "No automated response</div></div>",
         unsafe_allow_html=True,
     )
-    st.caption("Local research prototype")
-current_page.run()
