@@ -108,15 +108,16 @@ def get_attack_paths(
         return []
 
     results = []
-    lengths = nx.single_source_shortest_path_length(G, start_node, cutoff=max_hops)
+    # One bounded breadth-first search yields the shortest path to every
+    # reachable asset, so large observed graphs stay cheap to query.
+    shortest_paths = nx.single_source_shortest_path(
+        G, start_node, cutoff=max_hops
+    )
 
-    for target, hops in lengths.items():
+    for target, path in shortest_paths.items():
         if target == start_node:
             continue
-        try:
-            path = nx.shortest_path(G, start_node, target)
-        except nx.NetworkXNoPath:
-            continue
+        hops = len(path) - 1
 
         path_criticality = sum(G.nodes[n].get("criticality", 1) for n in path)
         max_criticality = max(G.nodes[n].get("criticality", 1) for n in path)

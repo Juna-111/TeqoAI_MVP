@@ -87,7 +87,7 @@ def compute_risk(df):
     def build_reason(row):
         reasons = []
         if row["factor_new_device"]:
-            reasons.append("first-time access to this device")
+            reasons.append("first-time access to this destination")
         if row["factor_sensitive_asset"]:
             reasons.append(f"reached a sensitive asset ({row['target_device']})")
         if row["factor_failed_login"]:

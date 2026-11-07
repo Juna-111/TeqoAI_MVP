@@ -591,6 +591,15 @@ def load_analysis_resources(clean):
     return X, model, scaler
 
 
+def format_event_value(value):
+    """Render mixed numeric/categorical event values as display text."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return f"{float(value):g}"
+
+
 def render_shap_explanation(explanation):
     st.markdown("#### Exact Shapley decomposition")
     st.caption(
@@ -632,7 +641,7 @@ def render_shap_explanation(explanation):
                         [
                             {
                                 "Feature": item["label"],
-                                "Event value": item["value"],
+                                "Event value": format_event_value(item["value"]),
                                 "Shapley contribution": item["shap_value"],
                             }
                             for item in drivers
@@ -640,6 +649,11 @@ def render_shap_explanation(explanation):
                     ),
                     width="stretch",
                     hide_index=True,
+                    column_config={
+                        "Shapley contribution": st.column_config.NumberColumn(
+                            format="%.6f"
+                        ),
+                    },
                 )
             else:
                 st.caption("No contributions in this direction.")
@@ -659,6 +673,11 @@ def render_shap_explanation(explanation):
             ),
             width="stretch",
             hide_index=True,
+            column_config={
+                "Interaction contribution": st.column_config.NumberColumn(
+                    format="%.6f"
+                ),
+            },
         )
     else:
         st.caption("No pairwise interaction contributions were measured.")
@@ -934,12 +953,23 @@ def render_investigation(queue, data, graph, cases, clean_events):
         return
 
     event_ids = queue["_event_id"].tolist()[:500]
+    # Keep the investigated alert selected even if saving a case moves it in
+    # the priority queue. If a filter hides the alert entirely, reset the choice.
+    pinned_event_id = st.session_state.get("investigation-event")
+    if pinned_event_id is not None:
+        queued_event_ids = set(queue["_event_id"])
+        if pinned_event_id in queued_event_ids:
+            if pinned_event_id not in event_ids:
+                event_ids.insert(0, pinned_event_id)
+        else:
+            st.session_state.pop("investigation-event", None)
     selected_event_id = st.selectbox(
         "Alert to investigate",
         options=event_ids,
         format_func=lambda event_id: event_label(
             queue.loc[queue["_event_id"] == event_id].iloc[0]
         ),
+        key="investigation-event",
     )
     row = queue.loc[queue["_event_id"] == selected_event_id].iloc[0]
     event_id = str(row["_event_id"])
@@ -1053,6 +1083,9 @@ def render_investigation(queue, data, graph, cases, clean_events):
 
     st.markdown("#### Analyst action plan")
     st.caption("Checklist items are reminders only. TeqoAI does not execute containment actions.")
+    saved_flag = f"case-saved-{event_id}"
+    if st.session_state.pop(saved_flag, False):
+        st.success("Case saved locally and added to the audit trail.")
     with st.form(f"case-form-{event_id}"):
         form_left, form_right = st.columns([1, 2])
         with form_left:
@@ -1095,7 +1128,7 @@ def render_investigation(queue, data, graph, cases, clean_events):
                     "This case could not be saved. Your latest changes were not recorded."
                 )
             else:
-                st.success("Case saved locally.")
+                st.session_state[saved_flag] = True
                 st.rerun()
 
     history = get_case_history(DATASET, event_id)
@@ -2125,7 +2158,6 @@ home_page = st.Page(
     render_homepage,
     title="Home",
     icon=":material/home:",
-    url_path="home",
     default=True,
 )
 overview_page = st.Page(
