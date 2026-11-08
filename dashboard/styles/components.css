@@ -540,6 +540,158 @@
     font-size: 0.66rem;
 }
 
+.teqo-model-card .teqo-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+}
+
+.teqo-model-facts {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0.75rem 0 0;
+    padding: 0.7rem 0 0;
+    border-top: 1px solid var(--teqo-border-soft);
+}
+
+.teqo-model-facts div {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.teqo-model-facts dt {
+    color: var(--teqo-muted);
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teqo-model-facts dd {
+    margin: 0;
+    color: var(--teqo-text-2);
+    font-size: 0.74rem;
+    line-height: 1.5;
+}
+
+/* Module-level architecture flow */
+
+.teqo-arch-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0.45rem;
+    margin-top: 0.9rem;
+}
+
+.teqo-arch-stage {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 11px;
+    background: var(--teqo-surface);
+}
+
+.teqo-arch-stage-head {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--teqo-muted);
+    font-size: 0.6rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teqo-arch-index {
+    color: var(--teqo-accent);
+    font-family: var(--teqo-mono);
+}
+
+.teqo-arch-stage h3 {
+    margin: 0.45rem 0 0.65rem;
+    color: var(--teqo-text);
+    font-size: 0.88rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.teqo-arch-modules {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.teqo-arch-modules li {
+    padding-bottom: 0.45rem;
+    border-bottom: 1px dashed var(--teqo-border-soft);
+}
+
+.teqo-arch-modules code {
+    display: block;
+    color: #A8B9FF;
+    font-family: var(--teqo-mono);
+    font-size: 0.64rem;
+    overflow-wrap: anywhere;
+}
+
+.teqo-arch-modules span {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--teqo-muted);
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
+.teqo-arch-artifacts {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--teqo-border-soft);
+}
+
+.teqo-arch-artifacts > span {
+    display: block;
+    margin-bottom: 0.3rem;
+    color: var(--teqo-muted);
+    font-size: 0.58rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teqo-arch-artifacts code {
+    display: inline-block;
+    margin: 0 0.25rem 0.25rem 0;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: rgba(54, 185, 214, 0.08);
+    color: #A8DCEA;
+    font-family: var(--teqo-mono);
+    font-size: 0.6rem;
+    overflow-wrap: anywhere;
+}
+
+.teqo-arch-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--teqo-accent);
+    font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+    .teqo-arch-flow {
+        flex-direction: column;
+    }
+
+    .teqo-arch-arrow {
+        justify-content: center;
+        transform: rotate(90deg);
+    }
+}
+
 /* Empty state */
 
 .teqo-empty {
@@ -684,6 +836,10 @@
     color: var(--teqo-text-2);
     font-size: 0.94rem;
     line-height: 1.65;
+}
+
+.teqo-scope-kicker {
+    margin-top: 1.3rem;
 }
 
 .teqo-limitations {

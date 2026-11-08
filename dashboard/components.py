@@ -153,6 +153,17 @@ def section_header(kicker, title=None, description=None):
     return f'<div class="teqo-section-head">{"".join(parts)}</div>'
 
 
+def process_diagram(kicker, title, description, steps):
+    items = "".join(
+        "<li><strong>{}</strong><span>{}</span></li>".format(esc(label), esc(detail))
+        for label, detail in steps
+    )
+    return (
+        section_header(kicker, title, description)
+        + f'<ol class="teqo-process" aria-label="{esc(title)}">{items}</ol>'
+    )
+
+
 def metric_grid(items):
     cards = []
     for item in items:

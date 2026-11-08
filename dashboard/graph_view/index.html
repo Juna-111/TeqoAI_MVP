@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1422;
+    --surface: #101a2a;
+    --surface-2: #162338;
+    --border: #26364d;
+    --text: #f2f5fa;
+    --text-2: #c3cedd;
+    --muted: #9ba9bd;
+    --accent: #36b9d6;
+    --warning: #f2a93b;
+    --blue: #5477f5;
+    --success: #32b783;
+    --critical: #f04452;
+    --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: var(--font);
+    color: var(--text);
+  }
+  * { box-sizing: border-box; }
+  .shell {
+    position: relative;
+    height: 624px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background:
+      radial-gradient(720px 360px at 50% 42%, rgba(54, 185, 214, 0.07), transparent 68%),
+      var(--surface);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  svg.panning { cursor: grabbing; }
+  .edge {
+    fill: none;
+    stroke: #33475f;
+    stroke-width: 1.1;
+    opacity: 0.7;
+    transition: opacity 120ms ease, stroke 120ms ease;
+  }
+  .edge.path {
+    stroke: var(--warning);
+    stroke-width: 2.4;
+    opacity: 0.95;
+    stroke-dasharray: 7 6;
+    animation: flow 2.8s linear infinite;
+  }
+  .edge.selected {
+    stroke: var(--accent);
+    stroke-width: 2.8;
+    opacity: 1;
+    stroke-dasharray: none;
+    animation: none;
+  }
+  .edge.dim { opacity: 0.12; }
+  .edge-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 9;
+    cursor: pointer;
+  }
+  .node { cursor: pointer; }
+  .node .halo {
+    fill: var(--accent);
+    opacity: 0.1;
+    transition: opacity 120ms ease;
+  }
+  .node .ring {
+    fill: var(--surface);
+    stroke: var(--accent);
+    stroke-width: 1.6;
+  }
+  .node .core { fill: var(--accent); }
+  .node .label {
+    fill: var(--text-2);
+    font-size: 10.5px;
+    text-anchor: middle;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--surface);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+  .node:hover .halo, .node:focus-visible .halo { opacity: 0.26; }
+  .node:hover .ring { stroke-width: 2.4; }
+  .node:focus-visible { outline: none; }
+  .node:focus-visible .ring { stroke: var(--text); stroke-width: 2.6; }
+  .node.selected .halo { opacity: 0.34; }
+  .node.selected .ring { stroke-width: 3.2; stroke: var(--text); }
+  .node.selected .label { fill: var(--text); font-weight: 600; }
+  .node.neighbor .ring { stroke-width: 2.4; }
+  .node.path .ring { stroke: var(--warning); stroke-width: 2.6; }
+  .node.path.selected .ring { stroke: var(--text); }
+  .node.dim { opacity: 0.18; }
+  .node.dim .label { opacity: 0; }
+  .node .hit {
+    fill: transparent;
+    stroke: none;
+  }
+  .toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .toolbar button {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(16, 26, 42, 0.92);
+    color: var(--text);
+    font: 600 14px/1 var(--font);
+    cursor: pointer;
+  }
+  .toolbar button.wide { width: 32px; font-size: 11px; }
+  .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+  .toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .legend {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    max-width: calc(100% - 150px);
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(11, 20, 34, 0.86);
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.2;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .legend i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+  }
+  .legend .line {
+    width: 16px;
+    height: 0;
+    border-top: 2px solid currentColor;
+    border-radius: 0;
+    background: none;
+  }
+  .hint {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    max-width: 190px;
+    text-align: right;
+    font-size: 10px;
+    line-height: 1.35;
+    color: var(--muted);
+    opacity: 0.85;
+  }
+  .tooltip {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    max-width: 230px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(7, 13, 24, 0.96);
+    color: var(--text-2);
+    font-size: 10.5px;
+    line-height: 1.4;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip strong { color: var(--text); font-weight: 600; }
+  .empty {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 24px;
+    text-align: center;
+  }
+  @keyframes flow { to { stroke-dashoffset: -26; } }
+  @media (prefers-reduced-motion: reduce) {
+    .edge.path { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <svg id="svg" viewBox="0 0 1000 624" preserveAspectRatio="xMidYMid meet"
+       role="application" aria-label="Observed authentication relationship graph"></svg>
+  <div class="toolbar" aria-label="Graph view controls">
+    <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+    <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" id="fit" class="wide" title="Fit graph to view" aria-label="Fit graph to view">Fit</button>
+  </div>
+  <div class="legend" id="legend" aria-label="Graph legend">
+    <span style="color:#36b9d6"><i></i>Workstation</span>
+    <span style="color:#5477f5"><i></i>Server</span>
+    <span style="color:#f2a93b"><i></i>Database</span>
+    <span style="color:#32b783"><i></i>Application</span>
+    <span style="color:#9ba9bd"><i></i>Other</span>
+    <span style="color:#5477f5"><i class="line"></i>Observed relationship</span>
+    <span style="color:#f2a93b"><i class="line"></i>Bounded observed path</span>
+  </div>
+  <div class="hint">Select a node or relationship · drag to pan · scroll to zoom</div>
+  <div class="tooltip" id="tooltip" hidden></div>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("svg");
+  const shell = document.getElementById("shell");
+  const tooltip = document.getElementById("tooltip");
+
+  const TYPE_COLORS = {
+    workstation: "#36b9d6",
+    server: "#5477f5",
+    database: "#f2a93b",
+    application: "#32b783",
+    other: "#9ba9bd"
+  };
+
+  const state = {
+    nodes: [],
+    edges: [],
+    positions: {},
+    selected: null,
+    selectedEdge: null,
+    pathNodes: [],
+    pathEdges: [],
+    matches: [],
+    nonce: 0,
+    fitToken: null,
+    view: { k: 1, x: 0, y: 0 },
+    signature: "",
+    viewport: null,
+    dragging: null,
+    moved: false
+  };
+
+  window.addEventListener("error", function (event) {
+    if (window.__teqoDebug) window.__teqoDebug.error = String(event.message);
+  });
+
+  function post(type, payload) {
+    window.parent.postMessage(
+      Object.assign({ isStreamlitMessage: true, type: type }, payload || {}),
+      "*"
+    );
+  }
+
+  function setHeight(height) {
+    post("streamlit:setFrameHeight", { height: height });
+  }
+
+  function setValue(value) {
+    post("streamlit:setComponentValue", { value: value, dataType: "json" });
+  }
+
+  function escapeText(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function nodeKey(value) {
+    return String(value);
+  }
+
+  function edgeKey(source, target) {
+    return String(source) + "\u0000" + String(target);
+  }
+
+  function degreeMaps() {
+    const out = new Map();
+    const inn = new Map();
+    state.nodes.forEach(function (node) {
+      out.set(node.id, 0);
+      inn.set(node.id, 0);
+    });
+    state.edges.forEach(function (edge) {
+      out.set(edge.source, (out.get(edge.source) || 0) + Number(edge.weight || 1));
+      inn.set(edge.target, (inn.get(edge.target) || 0) + Number(edge.weight || 1));
+    });
+    return { out: out, inn: inn };
+  }
+
+  function radiusFor(id, degrees) {
+    const total = (degrees.out.get(id) || 0) + (degrees.inn.get(id) || 0);
+    return 7 + Math.min(6.5, Math.sqrt(total) * 1.9);
+  }
+
+  function applyView() {
+    if (state.viewport) {
+      state.viewport.setAttribute(
+        "transform",
+        "translate(" + state.view.x + " " + state.view.y + ") scale(" + state.view.k + ")"
+      );
+    }
+  }
+
+  function fitView(animate) {
+    const nodes = state.nodes;
+    if (!nodes.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(function (node) {
+      const position = state.positions[node.id] || [500, 312];
+      minX = Math.min(minX, position[0]);
+      maxX = Math.max(maxX, position[0]);
+      minY = Math.min(minY, position[1]);
+      maxY = Math.max(maxY, position[1]);
+    });
+    const width = Math.max(maxX - minX, 1);
+    const height = Math.max(maxY - minY, 1);
+    const padding = 70;
+    const k = Math.min(
+      2.2,
+      Math.max(0.35, Math.min((1000 - padding * 2) / width, (624 - padding * 2) / height))
+    );
+    state.view.k = k;
+    state.view.x = 500 - ((minX + maxX) / 2) * k;
+    state.view.y = 312 - ((minY + maxY) / 2) * k;
+    applyView();
+    if (animate && svg.animate) {
+      svg.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 180 });
+    }
+  }
+
+  function signatureFor() {
+    return state.nodes
+      .map(function (node) { return node.id; })
+      .sort()
+      .join("|");
+  }
+
+  function selectedNeighbors() {
+    const neighbors = new Set();
+    if (!state.selected) return neighbors;
+    state.edges.forEach(function (edge) {
+      if (edge.source === state.selected) neighbors.add(edge.target);
+      if (edge.target === state.selected) neighbors.add(edge.source);
+    });
+    return neighbors;
+  }
+
+  function showTooltip(event, html) {
+    tooltip.innerHTML = html;
+    tooltip.hidden = false;
+    const box = shell.getBoundingClientRect();
+    const x = event.clientX - box.left;
+    const y = event.clientY - box.top;
+    const width = tooltip.offsetWidth;
+    const height = tooltip.offsetHeight;
+    tooltip.style.left = Math.max(8, Math.min(box.width - width - 8, x + 14)) + "px";
+    tooltip.style.top = Math.max(8, Math.min(box.height - height - 8, y + 14)) + "px";
+  }
+
+  function hideTooltip() {
+    tooltip.hidden = true;
+  }
+
+  function selectNode(id) {
+    state.selected = id;
+    state.selectedEdge = null;
+    renderGraph();
+    setValue({ node: id, edge: null, nonce: state.nonce });
+  }
+
+  function selectEdge(source, target) {
+    state.selectedEdge = [source, target];
+    renderGraph();
+    setValue({ node: state.selected, edge: [source, target], nonce: state.nonce });
+  }
+
+  function renderGraph() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    hideTooltip();
+
+    if (!state.nodes.length) {
+      const foreign = document.createElementNS(NS, "foreignObject");
+      foreign.setAttribute("x", "0");
+      foreign.setAttribute("y", "0");
+      foreign.setAttribute("width", "1000");
+      foreign.setAttribute("height", "624");
+      const div = document.createElement("div");
+      div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+      div.className = "empty";
+      div.textContent = "No entities match the current filters.";
+      foreign.appendChild(div);
+      svg.appendChild(foreign);
+      applyView();
+      return;
+    }
+
+    const degrees = degreeMaps();
+    const neighbors = selectedNeighbors();
+    const pathNodes = new Set(state.pathNodes.map(String));
+    const pathEdges = new Set(state.pathEdges.map(function (pair) { return edgeKey(pair[0], pair[1]); }));
+    const matches = new Set(state.matches.map(String));
+    const hasSearch = matches.size > 0;
+    const selectedEdgeKey = state.selectedEdge ? edgeKey(state.selectedEdge[0], state.selectedEdge[1]) : null;
+
+    const defs = document.createElementNS(NS, "defs");
+    defs.innerHTML =
+      '<marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" ' +
+      'orient="auto" markerUnits="strokeWidth">' +
+      '<path d="M0,0 L0,6 L7,3 z" fill="#5477f5"/></marker>' +
+      '<marker id="arrow-path" markerWidth="9" markerHeight="9" refX="7" refY="3" ' +
+      'orient="auto" markerUnits="strokeWidth">' +
+      '<path d="M0,0 L0,6 L7,3 z" fill="#f2a93b"/></marker>' +
+      '<marker id="arrow-selected" markerWidth="9" markerHeight="9" refX="7" refY="3" ' +
+      'orient="auto" markerUnits="strokeWidth">' +
+      '<path d="M0,0 L0,6 L7,3 z" fill="#36b9d6"/></marker>' +
+      '<filter id="glow" x="-90%" y="-90%" width="280%" height="280%">' +
+      '<feGaussianBlur stdDeviation="5" result="blur"/>' +
+      '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+    svg.appendChild(defs);
+
+    const viewport = document.createElementNS(NS, "g");
+    viewport.setAttribute("id", "viewport");
+    svg.appendChild(viewport);
+    state.viewport = viewport;
+
+    const edgeLayer = document.createElementNS(NS, "g");
+    const nodeLayer = document.createElementNS(NS, "g");
+    viewport.appendChild(edgeLayer);
+    viewport.appendChild(nodeLayer);
+
+    state.edges.forEach(function (edge) {
+      const sourcePosition = state.positions[edge.source];
+      const targetPosition = state.positions[edge.target];
+      if (!sourcePosition || !targetPosition) return;
+      const key = edgeKey(edge.source, edge.target);
+      const isPath = pathEdges.has(key);
+      const isSelected = key === selectedEdgeKey;
+      const isDim = hasSearch && !isPath &&
+        !(matches.has(edge.source) || matches.has(edge.target));
+      const classes = ["edge"];
+      if (isPath) classes.push("path");
+      if (isSelected) classes.push("selected");
+      if (isDim) classes.push("dim");
+
+      let pathData;
+      let marker = "url(#arrow)";
+      if (isPath) marker = "url(#arrow-path)";
+      if (isSelected) marker = "url(#arrow-selected)";
+
+      if (edge.source === edge.target) {
+        const x = sourcePosition[0];
+        const y = sourcePosition[1];
+        const r = radiusFor(edge.source, degrees);
+        pathData = "M " + (x - r * 0.5) + " " + (y - r) +
+          " C " + (x - 46) + " " + (y - 64) + " " + (x + 46) + " " + (y - 64) +
+          " " + (x + r * 0.5) + " " + (y - r);
+      } else {
+        const dx = targetPosition[0] - sourcePosition[0];
+        const dy = targetPosition[1] - sourcePosition[1];
+        const distance = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        const ux = dx / distance;
+        const uy = dy / distance;
+        const sourceRadius = radiusFor(edge.source, degrees) + 4;
+        const targetRadius = radiusFor(edge.target, degrees) + 7;
+        pathData = "M " + (sourcePosition[0] + ux * sourceRadius) + " " +
+          (sourcePosition[1] + uy * sourceRadius) + " L " +
+          (targetPosition[0] - ux * targetRadius) + " " +
+          (targetPosition[1] - uy * targetRadius);
+      }
+
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", pathData);
+      path.setAttribute("class", classes.join(" "));
+      path.setAttribute("marker-end", marker);
+      path.setAttribute("aria-label",
+        edge.source + " to " + edge.target + ", " + edge.weight +
+        " successful authentication observation" + (Number(edge.weight) === 1 ? "" : "s"));
+      edgeLayer.appendChild(path);
+
+      const hit = document.createElementNS(NS, "path");
+      hit.setAttribute("d", pathData);
+      hit.setAttribute("class", "edge-hit");
+      hit.setAttribute("data-source", edge.source);
+      hit.setAttribute("data-target", edge.target);
+      edgeLayer.appendChild(hit);
+
+      hit.addEventListener("mousemove", function (event) {
+        showTooltip(
+          event,
+          "<strong>" + escapeText(edge.source) + " → " + escapeText(edge.target) +
+          "</strong><br>" + Number(edge.weight) + " successful observation" +
+          (Number(edge.weight) === 1 ? "" : "s") + "<br>Click to inspect this relationship."
+        );
+      });
+      hit.addEventListener("mouseleave", hideTooltip);
+      hit.addEventListener("click", function (event) {
+        event.stopPropagation();
+        selectEdge(edge.source, edge.target);
+      });
+    });
+
+    state.nodes.forEach(function (node) {
+      const position = state.positions[node.id] || [500, 312];
+      const x = position[0];
+      const y = position[1];
+      const radius = radiusFor(node.id, degrees);
+      const color = TYPE_COLORS[node.type] || TYPE_COLORS.other;
+      const isSelected = node.id === state.selected;
+      const isNeighbor = neighbors.has(node.id);
+      const isPath = pathNodes.has(node.id);
+      const isDim = hasSearch && !matches.has(node.id) && !isPath;
+      const classes = ["node"];
+      if (isSelected) classes.push("selected");
+      if (isNeighbor) classes.push("neighbor");
+      if (isPath) classes.push("path");
+      if (isDim) classes.push("dim");
+
+      const group = document.createElementNS(NS, "g");
+      group.setAttribute("class", classes.join(" "));
+      group.setAttribute("transform", "translate(" + x + " " + y + ")");
+      group.setAttribute("data-id", node.id);
+      group.setAttribute("role", "button");
+      group.setAttribute("tabindex", "0");
+      group.setAttribute("aria-label",
+        node.id + ", " + node.type + ", " + (degrees.out.get(node.id) || 0) +
+        " outgoing and " + (degrees.inn.get(node.id) || 0) + " incoming successful observations");
+      if (isSelected) group.setAttribute("aria-pressed", "true");
+
+      const halo = document.createElementNS(NS, "circle");
+      halo.setAttribute("class", "halo");
+      halo.setAttribute("r", radius + 7);
+      halo.setAttribute("fill", color);
+      group.appendChild(halo);
+
+      const ring = document.createElementNS(NS, "circle");
+      ring.setAttribute("class", "ring");
+      ring.setAttribute("r", radius);
+      ring.setAttribute("stroke", color);
+      group.appendChild(ring);
+
+      const core = document.createElementNS(NS, "circle");
+      core.setAttribute("class", "core");
+      core.setAttribute("r", Math.max(2.4, radius * 0.32));
+      core.setAttribute("fill", color);
+      group.appendChild(core);
+
+      const hit = document.createElementNS(NS, "circle");
+      hit.setAttribute("class", "hit");
+      hit.setAttribute("r", radius + 5);
+      group.appendChild(hit);
+
+      const label = document.createElementNS(NS, "text");
+      label.setAttribute("class", "label");
+      label.setAttribute("y", radius + 13);
+      label.textContent = node.id;
+      group.appendChild(label);
+
+      group.addEventListener("mousemove", function (event) {
+        showTooltip(
+          event,
+          "<strong>" + escapeText(node.id) + "</strong> · " + escapeText(node.type) +
+          "<br>" + (degrees.out.get(node.id) || 0) + " outgoing · " +
+          (degrees.inn.get(node.id) || 0) + " incoming (weighted successes)" +
+          "<br>Click to inspect this entity."
+        );
+      });
+      group.addEventListener("mouseleave", hideTooltip);
+      group.addEventListener("click", function (event) {
+        event.stopPropagation();
+        selectNode(node.id);
+      });
+      group.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectNode(node.id);
+        }
+      });
+      nodeLayer.appendChild(group);
+    });
+
+    applyView();
+  }
+
+  function clientToSvg(event) {
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const matrix = svg.getScreenCTM();
+    return matrix ? point.matrixTransform(matrix.inverse()) : { x: event.clientX, y: event.clientY };
+  }
+
+  function zoomAt(factor, cx, cy) {
+    const next = Math.max(0.3, Math.min(5, state.view.k * factor));
+    const applied = next / state.view.k;
+    state.view.x = cx - (cx - state.view.x) * applied;
+    state.view.y = cy - (cy - state.view.y) * applied;
+    state.view.k = next;
+    applyView();
+  }
+
+  svg.addEventListener("wheel", function (event) {
+    event.preventDefault();
+    const point = clientToSvg(event);
+    zoomAt(Math.exp(-event.deltaY * 0.0014), point.x, point.y);
+  }, { passive: false });
+
+  svg.addEventListener("pointerdown", function (event) {
+    if (event.target.closest(".node") || event.target.closest(".edge-hit")) return;
+    const point = clientToSvg(event);
+    state.dragging = { x: point.x, y: point.y, startX: state.view.x, startY: state.view.y };
+    state.moved = false;
+    svg.classList.add("panning");
+    svg.setPointerCapture(event.pointerId);
+  });
+
+  svg.addEventListener("pointermove", function (event) {
+    if (!state.dragging) return;
+    const point = clientToSvg(event);
+    const dx = point.x - state.dragging.x;
+    const dy = point.y - state.dragging.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) state.moved = true;
+    state.view.x = state.dragging.startX + dx;
+    state.view.y = state.dragging.startY + dy;
+    applyView();
+  });
+
+  function endDrag(event) {
+    if (!state.dragging) return;
+    state.dragging = null;
+    svg.classList.remove("panning");
+    try { svg.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+  }
+
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+  svg.addEventListener("dblclick", function (event) {
+    if (!event.target.closest(".node") && !event.target.closest(".edge-hit")) fitView(true);
+  });
+
+  document.getElementById("zoom-in").addEventListener("click", function () {
+    zoomAt(1.28, 500, 312);
+  });
+  document.getElementById("zoom-out").addEventListener("click", function () {
+    zoomAt(1 / 1.28, 500, 312);
+  });
+  document.getElementById("fit").addEventListener("click", function () {
+    fitView(true);
+  });
+
+  function handleRender(event) {
+    if (!event.data || event.data.type !== "streamlit:render") return;
+    const params = event.data.args || {};
+    const args = params.args && typeof params.args === "object" && !Array.isArray(params.args)
+      ? params.args
+      : params;
+    window.__teqoDebug = { args: args };
+    state.nodes = Array.isArray(args.nodes) ? args.nodes : [];
+    state.edges = Array.isArray(args.edges) ? args.edges : [];
+    state.positions = args.positions || {};
+    state.selected = args.selected || null;
+    state.selectedEdge = args.selected_edge || null;
+    state.pathNodes = Array.isArray(args.path_nodes) ? args.path_nodes : [];
+    state.pathEdges = Array.isArray(args.path_edges) ? args.path_edges : [];
+    state.matches = Array.isArray(args.matches) ? args.matches : [];
+    state.nonce = args.nonce || 0;
+
+    const nextFitToken = args.fit_token || 0;
+    const fitRequested = state.fitToken !== null && nextFitToken !== state.fitToken;
+    state.fitToken = nextFitToken;
+
+    const signature = signatureFor();
+    if (signature !== state.signature) {
+      state.signature = signature;
+      renderGraph();
+      fitView(false);
+    } else {
+      renderGraph();
+      if (fitRequested) fitView(true);
+    }
+    setHeight(624);
+  }
+
+  window.addEventListener("message", handleRender);
+  post("streamlit:componentReady", { apiVersion: 1 });
+  setHeight(624);
+})();
+</script>
+</body>
+</html>

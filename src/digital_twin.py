@@ -304,10 +304,43 @@ def explain_event(
     if not np.allclose(interactions.sum(axis=1), shap_values, rtol=1e-9, atol=1e-10):
         raise ArithmeticError("Shapley interaction values do not sum to feature values.")
 
+    sampled_background = background_values[sample_positions]
+    group_encoded_names = {
+        group_key: [features.columns[column] for column in columns]
+        for group_key, columns in grouped_columns.items()
+    }
+    background_comparison = {}
+    for group_key, columns in grouped_columns.items():
+        encoded_names = group_encoded_names[group_key]
+        if group_key in {"authentication_method", "logon_category"}:
+            category_counts = {}
+            for background_row in sampled_background:
+                active = [
+                    name.split("_", 1)[1]
+                    for name, column in zip(encoded_names, columns)
+                    if background_row[column] >= 0.5
+                ]
+                category = ", ".join(active) if active else "Other / unknown category"
+                category_counts[category] = category_counts.get(category, 0) + 1
+            category, count = max(
+                category_counts.items(), key=lambda item: item[1]
+            )
+            background_comparison[group_key] = {
+                "kind": "category",
+                "value": category,
+                "share": float(count / sample_count),
+            }
+        else:
+            background_comparison[group_key] = {
+                "kind": "numeric",
+                "value": float(sampled_background[:, columns[0]].mean()),
+                "share": None,
+            }
+
     feature_rows = []
     for index, group_key in enumerate(group_keys):
         columns = grouped_columns[group_key]
-        encoded_names = [features.columns[column] for column in columns]
+        encoded_names = group_encoded_names[group_key]
         if group_key in {"authentication_method", "logon_category"}:
             active = [
                 name.split("_", 1)[1]
@@ -322,6 +355,7 @@ def explain_event(
             "label": grouped_labels[group_key],
             "encoded_features": encoded_names,
             "value": value,
+            "background": background_comparison[group_key],
             "shap_value": float(shap_values[index]),
         })
     feature_rows.sort(key=lambda item: abs(item["shap_value"]), reverse=True)
