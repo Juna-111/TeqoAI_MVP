@@ -28,13 +28,14 @@ from data_access import (  # noqa: E402
     load_graph,
 )
 from filters import apply_filters  # noqa: E402
-from views.about import render_demo_setup, render_homepage  # noqa: E402
+from views.about import render_about, render_demo_setup  # noqa: E402
 from views.architecture import render_architecture  # noqa: E402
 from views.digital_twin import render_twin  # noqa: E402
 from views.evaluation import (  # noqa: E402
     render_data_quality,
     render_research_and_evaluation,
 )
+from views.home import render_home  # noqa: E402
 from views.intelligence import render_model_intelligence  # noqa: E402
 from views.investigation import render_investigation  # noqa: E402
 from views.overview import render_overview  # noqa: E402
@@ -254,10 +255,22 @@ def render_analyst_page(selected_page):
 
 
 home_page = st.Page(
-    lambda: render_homepage(overview_page, intelligence_page),
+    lambda: render_home(
+        intelligence_page,
+        investigation_page,
+        paths_page,
+        results_page,
+        about_page,
+    ),
+    title="Home",
+    icon=":material/home:",
+    default=True,
+)
+about_page = st.Page(
+    lambda: render_about(overview_page, intelligence_page),
     title="About TeqoAI",
     icon=":material/info:",
-    default=True,
+    url_path="about",
 )
 overview_page = st.Page(
     lambda: render_analyst_page("Overview"),
@@ -298,9 +311,10 @@ architecture_page = st.Page(
 
 current_page = st.navigation(
     {
+        "Start": [home_page],
         "Workspace": [overview_page, investigation_page, paths_page],
         "Intelligence": [intelligence_page, results_page],
-        "System": [architecture_page, home_page],
+        "System": [architecture_page, about_page],
     },
     position="sidebar",
 )

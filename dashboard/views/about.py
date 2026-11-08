@@ -78,7 +78,7 @@ def render_demo_setup(button_key):
             st.rerun()
 
 
-def render_homepage(overview_page, intelligence_page):
+def render_about(overview_page, intelligence_page):
     with open(LOGO_FILE, "rb") as logo_file:
         logo_data = base64.b64encode(logo_file.read()).decode("ascii")
     logo_markup = f'<img src="data:image/png;base64,{logo_data}" alt="TeqoAI emblem">'

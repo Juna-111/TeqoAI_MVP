@@ -17,6 +17,7 @@
     --blue: #5477f5;
     --success: #32b783;
     --critical: #f04452;
+    --violet: #8b7cf6;
     --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   }
   html, body {
@@ -37,6 +38,14 @@
       radial-gradient(720px 360px at 50% 42%, rgba(54, 185, 214, 0.07), transparent 68%),
       var(--surface);
   }
+  .shell.presentation {
+    border-color: rgba(139, 124, 246, 0.24);
+    background:
+      radial-gradient(760px 380px at 52% 42%, rgba(139, 124, 246, 0.1), transparent 66%),
+      radial-gradient(560px 300px at 78% 22%, rgba(54, 185, 214, 0.07), transparent 70%),
+      rgba(8, 13, 24, 0.72);
+    box-shadow: inset 0 0 80px rgba(2, 8, 20, 0.45);
+  }
   svg {
     display: block;
     width: 100%;
@@ -52,6 +61,13 @@
     stroke-width: 1.1;
     opacity: 0.7;
     transition: opacity 120ms ease, stroke 120ms ease;
+  }
+  .edge.unusual {
+    stroke: var(--warning);
+    stroke-width: 1.6;
+    opacity: 0.9;
+    stroke-dasharray: 5 4;
+    animation: flow 3.6s linear infinite;
   }
   .edge.path {
     stroke: var(--warning);
@@ -100,6 +116,12 @@
   .node:hover .ring { stroke-width: 2.4; }
   .node:focus-visible { outline: none; }
   .node:focus-visible .ring { stroke: var(--text); stroke-width: 2.6; }
+  .node.unusual .halo {
+    fill: var(--warning);
+    opacity: 0.16;
+    animation: pulse 3.4s ease-in-out infinite;
+  }
+  .node.unusual .ring { stroke: var(--warning); }
   .node.selected .halo { opacity: 0.34; }
   .node.selected .ring { stroke-width: 3.2; stroke: var(--text); }
   .node.selected .label { fill: var(--text); font-weight: 600; }
@@ -133,6 +155,53 @@
   .toolbar button.wide { width: 32px; font-size: 11px; }
   .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
   .toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #reset { display: none; }
+  .shell.presentation #reset { display: block; }
+  .explorer {
+    position: absolute;
+    z-index: 4;
+    top: 12px;
+    left: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    width: min(300px, calc(100% - 68px));
+  }
+  .shell.presentation .explorer { display: flex; }
+  .explorer input {
+    width: 100%;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(9, 16, 29, 0.9);
+    color: var(--text);
+    font: 500 11.5px/1 var(--font);
+  }
+  .explorer input::placeholder { color: var(--muted); }
+  .explorer input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-color: var(--accent);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    padding: 4px 9px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: rgba(9, 16, 29, 0.86);
+    color: var(--muted);
+    font: 600 9.5px/1.3 var(--font);
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+  .chip[aria-pressed="true"] {
+    border-color: rgba(139, 124, 246, 0.6);
+    background: rgba(139, 124, 246, 0.16);
+    color: var(--text);
+  }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .legend {
     position: absolute;
     left: 12px;
@@ -190,6 +259,68 @@
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   }
   .tooltip strong { color: var(--text); font-weight: 600; }
+  .shell.presentation .legend,
+  .shell.presentation .hint { display: none; }
+  .inspector {
+    position: absolute;
+    z-index: 4;
+    left: 14px;
+    bottom: 14px;
+    width: min(300px, calc(100% - 28px));
+    padding: 13px 14px;
+    border: 1px solid rgba(139, 124, 246, 0.3);
+    border-radius: 12px;
+    background: rgba(9, 16, 29, 0.9);
+    box-shadow: 0 18px 38px rgba(2, 8, 20, 0.42);
+    backdrop-filter: blur(14px);
+    animation: inspector-in 180ms ease-out;
+  }
+  .inspector[hidden] { display: none; }
+  .inspector .kicker {
+    color: var(--accent);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .inspector h3 {
+    margin: 4px 0 2px;
+    color: var(--text);
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .inspector .subtitle {
+    margin-bottom: 8px;
+    color: var(--text-2);
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+  .inspector dl {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+  }
+  .inspector dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid rgba(148, 163, 184, 0.13);
+    padding-top: 5px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .inspector dt { color: var(--muted); }
+  .inspector dd {
+    margin: 0;
+    color: var(--text-2);
+    text-align: right;
+  }
+  .inspector p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 9.5px;
+    line-height: 1.45;
+  }
   .empty {
     height: 100%;
     display: grid;
@@ -200,8 +331,32 @@
     text-align: center;
   }
   @keyframes flow { to { stroke-dashoffset: -26; } }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.12; }
+    50% { opacity: 0.32; }
+  }
+  @keyframes inspector-in {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (max-width: 640px) {
+    .inspector { left: 10px; bottom: 10px; width: calc(100% - 20px); }
+    .toolbar { top: 10px; right: 10px; }
+    .toolbar button { width: 36px; height: 36px; }
+    .toolbar button.wide { width: 36px; }
+    .explorer { top: 10px; left: 10px; width: calc(100% - 64px); }
+    .explorer input { height: 38px; }
+    .chip { padding: 6px 10px; }
+    .node .label { display: none; }
+    .node.selected .label,
+    .node.path .label,
+    .node.neighbor .label { display: block; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .edge.path { animation: none; }
+    .edge.path,
+    .edge.unusual,
+    .node.unusual .halo { animation: none; }
+    .inspector { animation: none; }
   }
 </style>
 </head>
@@ -212,7 +367,19 @@
   <div class="toolbar" aria-label="Graph view controls">
     <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
     <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" id="focus" class="wide" title="Focus selected entity" aria-label="Focus selected entity">◎</button>
     <button type="button" id="fit" class="wide" title="Fit graph to view" aria-label="Fit graph to view">Fit</button>
+    <button type="button" id="reset" class="wide" title="Reset exploration" aria-label="Reset exploration">↺</button>
+  </div>
+  <div class="explorer" id="explorer" aria-label="Explorer controls">
+    <input id="explorer-search" type="search" placeholder="Search accounts, devices, services"
+           aria-label="Search entities" autocomplete="off" spellcheck="false" />
+    <div class="chips" role="group" aria-label="Filter by entity type">
+      <button type="button" class="chip" data-type="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-type="account" aria-pressed="false">Accounts</button>
+      <button type="button" class="chip" data-type="device" aria-pressed="false">Devices</button>
+      <button type="button" class="chip" data-type="service" aria-pressed="false">Services</button>
+    </div>
   </div>
   <div class="legend" id="legend" aria-label="Graph legend">
     <span style="color:#36b9d6"><i></i>Workstation</span>
@@ -224,6 +391,7 @@
     <span style="color:#f2a93b"><i class="line"></i>Bounded observed path</span>
   </div>
   <div class="hint">Select a node or relationship · drag to pan · scroll to zoom</div>
+  <div class="inspector" id="inspector" hidden></div>
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 <script>
@@ -236,7 +404,10 @@
   const tooltip = document.getElementById("tooltip");
 
   const TYPE_COLORS = {
+    account: "#8b7cf6",
+    device: "#36b9d6",
     workstation: "#36b9d6",
+    service: "#5477f5",
     server: "#5477f5",
     database: "#f2a93b",
     application: "#32b783",
@@ -254,6 +425,12 @@
     matches: [],
     nonce: 0,
     fitToken: null,
+    mode: "analyst",
+    emit: true,
+    nodeDetails: {},
+    edgeDetails: {},
+    query: "",
+    typeFilter: "all",
     view: { k: 1, x: 0, y: 0 },
     signature: "",
     viewport: null,
@@ -384,17 +561,141 @@
     tooltip.hidden = true;
   }
 
+  function detailKey(source, target) {
+    return String(source) + " -> " + String(target);
+  }
+
+  function typeLabel(node) {
+    if (node.type_label) return String(node.type_label);
+    return String(node.type || "entity")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+  }
+
+  function edgeWeight(source, target) {
+    const edge = state.edges.find(function (item) {
+      return item.source === source && item.target === target;
+    });
+    return edge ? Number(edge.weight || 1) : 0;
+  }
+
+  function updateInspector() {
+    const panel = document.getElementById("inspector");
+    if (!panel) return;
+    if (state.mode !== "presentation") {
+      panel.hidden = true;
+      panel.innerHTML = "";
+      return;
+    }
+
+    let detail = null;
+    if (state.selectedEdge) {
+      const source = state.selectedEdge[0];
+      const target = state.selectedEdge[1];
+      detail = state.edgeDetails[detailKey(source, target)] || {
+        kicker: "SYNTHETIC DEMO",
+        title: source + " → " + target,
+        subtitle: "Illustrative observed relationship",
+        rows: [
+          ["Direction", source + " → " + target],
+          ["Observations", edgeWeight(source, target)]
+        ],
+        note: "Generated demonstration data, not loaded activity or live monitoring."
+      };
+    } else if (state.selected) {
+      detail = state.nodeDetails[state.selected] || null;
+    }
+
+    if (!detail) {
+      panel.hidden = true;
+      panel.innerHTML = "";
+      return;
+    }
+
+    let markup =
+      '<div class="kicker">' + escapeText(detail.kicker || "SYNTHETIC DEMO") + "</div>" +
+      "<h3>" + escapeText(detail.title || "") + "</h3>";
+    if (detail.subtitle) {
+      markup += '<div class="subtitle">' + escapeText(detail.subtitle) + "</div>";
+    }
+    if (Array.isArray(detail.rows) && detail.rows.length) {
+      markup += "<dl>" + detail.rows.map(function (row) {
+        return "<div><dt>" + escapeText(row[0]) + "</dt><dd>" +
+          escapeText(row[1]) + "</dd></div>";
+      }).join("") + "</dl>";
+    }
+    if (detail.note) {
+      markup += "<p>" + escapeText(detail.note) + "</p>";
+    }
+    panel.innerHTML = markup;
+    panel.hidden = false;
+  }
+
   function selectNode(id) {
     state.selected = id;
     state.selectedEdge = null;
     renderGraph();
-    setValue({ node: id, edge: null, nonce: state.nonce });
+    if (state.emit) setValue({ node: id, edge: null, nonce: state.nonce });
   }
 
   function selectEdge(source, target) {
     state.selectedEdge = [source, target];
     renderGraph();
-    setValue({ node: state.selected, edge: [source, target], nonce: state.nonce });
+    if (state.emit) {
+      setValue({ node: state.selected, edge: [source, target], nonce: state.nonce });
+    }
+  }
+
+  function focusSelected() {
+    if (!state.selected) {
+      fitView(true);
+      return;
+    }
+    const ids = new Set([state.selected]);
+    state.edges.forEach(function (edge) {
+      if (edge.source === state.selected) ids.add(edge.target);
+      if (edge.target === state.selected) ids.add(edge.source);
+    });
+    const points = Array.from(ids).map(function (id) {
+      return state.positions[id];
+    }).filter(Boolean);
+    if (!points.length) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach(function (point) {
+      minX = Math.min(minX, point[0]);
+      maxX = Math.max(maxX, point[0]);
+      minY = Math.min(minY, point[1]);
+      maxY = Math.max(maxY, point[1]);
+    });
+    const padding = 150;
+    const width = Math.max(maxX - minX, 1);
+    const height = Math.max(maxY - minY, 1);
+    const k = Math.min(
+      2.4,
+      Math.max(0.55, Math.min((1000 - padding * 2) / width, (624 - padding * 2) / height))
+    );
+    state.view.k = k;
+    state.view.x = 500 - ((minX + maxX) / 2) * k;
+    state.view.y = 312 - ((minY + maxY) / 2) * k;
+    applyView();
+    if (svg.animate) {
+      svg.animate([{ opacity: 0.7 }, { opacity: 1 }], { duration: 180 });
+    }
+  }
+
+  function renderEmptyMessage(message) {
+    const foreign = document.createElementNS(NS, "foreignObject");
+    foreign.setAttribute("x", "0");
+    foreign.setAttribute("y", "0");
+    foreign.setAttribute("width", "1000");
+    foreign.setAttribute("height", "624");
+    const div = document.createElement("div");
+    div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+    div.className = "empty";
+    div.textContent = message;
+    foreign.appendChild(div);
+    svg.appendChild(foreign);
   }
 
   function renderGraph() {
@@ -402,18 +703,9 @@
     hideTooltip();
 
     if (!state.nodes.length) {
-      const foreign = document.createElementNS(NS, "foreignObject");
-      foreign.setAttribute("x", "0");
-      foreign.setAttribute("y", "0");
-      foreign.setAttribute("width", "1000");
-      foreign.setAttribute("height", "624");
-      const div = document.createElement("div");
-      div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-      div.className = "empty";
-      div.textContent = "No entities match the current filters.";
-      foreign.appendChild(div);
-      svg.appendChild(foreign);
+      renderEmptyMessage("No entities match the current filters.");
       applyView();
+      updateInspector();
       return;
     }
 
@@ -422,6 +714,49 @@
     const pathNodes = new Set(state.pathNodes.map(String));
     const pathEdges = new Set(state.pathEdges.map(function (pair) { return edgeKey(pair[0], pair[1]); }));
     const matches = new Set(state.matches.map(String));
+    const activeType = state.mode === "presentation" ? state.typeFilter : "all";
+    const query = state.mode === "presentation" ? state.query.trim().toLowerCase() : "";
+    const typeById = {};
+    state.nodes.forEach(function (node) {
+      typeById[node.id] = node.type;
+      if (
+        query &&
+        (String(node.id).toLowerCase().indexOf(query) !== -1 ||
+          typeLabel(node).toLowerCase().indexOf(query) !== -1)
+      ) {
+        matches.add(String(node.id));
+      }
+    });
+    const inActiveType = function (id) {
+      return activeType === "all" || typeById[id] === activeType;
+    };
+    if (activeType !== "all" && state.selected && !inActiveType(state.selected)) {
+      state.selected = null;
+      state.selectedEdge = null;
+    }
+    if (
+      activeType !== "all" &&
+      state.selectedEdge &&
+      (!inActiveType(state.selectedEdge[0]) || !inActiveType(state.selectedEdge[1]))
+    ) {
+      state.selectedEdge = null;
+    }
+    if (activeType !== "all" && !state.nodes.some(function (node) {
+      return inActiveType(node.id);
+    })) {
+      renderEmptyMessage("No entities match the selected type.");
+      applyView();
+      updateInspector();
+      return;
+    }
+    if (state.mode === "presentation" && query && matches.size === 0) {
+      renderEmptyMessage(
+        'No entities match "' + state.query.trim() + '". Clear the search to restore the network.'
+      );
+      applyView();
+      updateInspector();
+      return;
+    }
     const hasSearch = matches.size > 0;
     const selectedEdgeKey = state.selectedEdge ? edgeKey(state.selectedEdge[0], state.selectedEdge[1]) : null;
 
@@ -452,6 +787,7 @@
     viewport.appendChild(nodeLayer);
 
     state.edges.forEach(function (edge) {
+      if (!inActiveType(edge.source) || !inActiveType(edge.target)) return;
       const sourcePosition = state.positions[edge.source];
       const targetPosition = state.positions[edge.target];
       if (!sourcePosition || !targetPosition) return;
@@ -461,12 +797,14 @@
       const isDim = hasSearch && !isPath &&
         !(matches.has(edge.source) || matches.has(edge.target));
       const classes = ["edge"];
+      if (edge.unusual) classes.push("unusual");
       if (isPath) classes.push("path");
       if (isSelected) classes.push("selected");
       if (isDim) classes.push("dim");
 
       let pathData;
       let marker = "url(#arrow)";
+      if (edge.unusual) marker = "url(#arrow-path)";
       if (isPath) marker = "url(#arrow-path)";
       if (isSelected) marker = "url(#arrow-selected)";
 
@@ -497,7 +835,10 @@
       path.setAttribute("marker-end", marker);
       path.setAttribute("aria-label",
         edge.source + " to " + edge.target + ", " + edge.weight +
-        " successful authentication observation" + (Number(edge.weight) === 1 ? "" : "s"));
+        (state.mode === "presentation"
+          ? " illustrative relationship observation"
+          : " successful authentication observation") +
+        (Number(edge.weight) === 1 ? "" : "s"));
       edgeLayer.appendChild(path);
 
       const hit = document.createElementNS(NS, "path");
@@ -508,10 +849,13 @@
       edgeLayer.appendChild(hit);
 
       hit.addEventListener("mousemove", function (event) {
+        const weightLabel = state.mode === "presentation"
+          ? " illustrative observation"
+          : " successful observation";
         showTooltip(
           event,
           "<strong>" + escapeText(edge.source) + " → " + escapeText(edge.target) +
-          "</strong><br>" + Number(edge.weight) + " successful observation" +
+          "</strong><br>" + Number(edge.weight) + weightLabel +
           (Number(edge.weight) === 1 ? "" : "s") + "<br>Click to inspect this relationship."
         );
       });
@@ -523,6 +867,7 @@
     });
 
     state.nodes.forEach(function (node) {
+      if (!inActiveType(node.id)) return;
       const position = state.positions[node.id] || [500, 312];
       const x = position[0];
       const y = position[1];
@@ -533,6 +878,7 @@
       const isPath = pathNodes.has(node.id);
       const isDim = hasSearch && !matches.has(node.id) && !isPath;
       const classes = ["node"];
+      if (node.unusual) classes.push("unusual");
       if (isSelected) classes.push("selected");
       if (isNeighbor) classes.push("neighbor");
       if (isPath) classes.push("path");
@@ -545,8 +891,11 @@
       group.setAttribute("role", "button");
       group.setAttribute("tabindex", "0");
       group.setAttribute("aria-label",
-        node.id + ", " + node.type + ", " + (degrees.out.get(node.id) || 0) +
-        " outgoing and " + (degrees.inn.get(node.id) || 0) + " incoming successful observations");
+        node.id + ", " + typeLabel(node) + ", " + (degrees.out.get(node.id) || 0) +
+        " outgoing and " + (degrees.inn.get(node.id) || 0) +
+        (state.mode === "presentation"
+          ? " incoming illustrative links"
+          : " incoming successful observations"));
       if (isSelected) group.setAttribute("aria-pressed", "true");
 
       const halo = document.createElementNS(NS, "circle");
@@ -581,9 +930,13 @@
       group.addEventListener("mousemove", function (event) {
         showTooltip(
           event,
-          "<strong>" + escapeText(node.id) + "</strong> · " + escapeText(node.type) +
+          "<strong>" + escapeText(node.id) + "</strong> · " + escapeText(typeLabel(node)) +
+          (node.unusual ? " · unusual demo signal" : "") +
           "<br>" + (degrees.out.get(node.id) || 0) + " outgoing · " +
-          (degrees.inn.get(node.id) || 0) + " incoming (weighted successes)" +
+          (degrees.inn.get(node.id) || 0) +
+          (state.mode === "presentation"
+            ? " incoming (illustrative links)"
+            : " incoming (weighted successes)") +
           "<br>Click to inspect this entity."
         );
       });
@@ -602,6 +955,7 @@
     });
 
     applyView();
+    updateInspector();
   }
 
   function clientToSvg(event) {
@@ -666,7 +1020,45 @@
   document.getElementById("zoom-out").addEventListener("click", function () {
     zoomAt(1 / 1.28, 500, 312);
   });
+  document.getElementById("focus").addEventListener("click", focusSelected);
   document.getElementById("fit").addEventListener("click", function () {
+    fitView(true);
+  });
+
+  const searchInput = document.getElementById("explorer-search");
+  const typeChips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+
+  function applyTypeFilter(type) {
+    state.typeFilter = type;
+    typeChips.forEach(function (chip) {
+      chip.setAttribute(
+        "aria-pressed",
+        chip.getAttribute("data-type") === type ? "true" : "false"
+      );
+    });
+    renderGraph();
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", function () {
+      state.query = searchInput.value;
+      renderGraph();
+    });
+  }
+
+  typeChips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      applyTypeFilter(chip.getAttribute("data-type") || "all");
+    });
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    state.selected = null;
+    state.selectedEdge = null;
+    state.query = "";
+    if (searchInput) searchInput.value = "";
+    applyTypeFilter("all");
+    hideTooltip();
     fitView(true);
   });
 
@@ -680,12 +1072,41 @@
     state.nodes = Array.isArray(args.nodes) ? args.nodes : [];
     state.edges = Array.isArray(args.edges) ? args.edges : [];
     state.positions = args.positions || {};
-    state.selected = args.selected || null;
-    state.selectedEdge = args.selected_edge || null;
+    if (Object.prototype.hasOwnProperty.call(args, "selected")) {
+      state.selected = args.selected || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(args, "selected_edge")) {
+      state.selectedEdge = args.selected_edge || null;
+    }
+    if (
+      state.selected &&
+      !state.nodes.some(function (node) { return node.id === state.selected; })
+    ) {
+      state.selected = null;
+      state.selectedEdge = null;
+    }
+    if (
+      state.selectedEdge &&
+      !state.edges.some(function (edge) {
+        return edge.source === state.selectedEdge[0] &&
+          edge.target === state.selectedEdge[1];
+      })
+    ) {
+      state.selectedEdge = null;
+    }
     state.pathNodes = Array.isArray(args.path_nodes) ? args.path_nodes : [];
     state.pathEdges = Array.isArray(args.path_edges) ? args.path_edges : [];
     state.matches = Array.isArray(args.matches) ? args.matches : [];
     state.nonce = args.nonce || 0;
+    state.mode = args.mode === "presentation" ? "presentation" : "analyst";
+    state.emit = args.emit !== false;
+    state.nodeDetails = args.node_details && typeof args.node_details === "object"
+      ? args.node_details
+      : {};
+    state.edgeDetails = args.edge_details && typeof args.edge_details === "object"
+      ? args.edge_details
+      : {};
+    shell.classList.toggle("presentation", state.mode === "presentation");
 
     const nextFitToken = args.fit_token || 0;
     const fitRequested = state.fitToken !== null && nextFitToken !== state.fitToken;

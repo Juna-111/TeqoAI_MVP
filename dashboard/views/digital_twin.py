@@ -299,6 +299,20 @@ def _selected_entity_panel(graph, selected, clean_success, queue):
         st.caption("No related authenticated activity was found for this entity.")
 
 
+def _valid_visible_edge(edge, visible_set, visible_graph):
+    """Return a normalised edge tuple only if it exists in the visible graph."""
+    if not isinstance(edge, (list, tuple)) or len(edge) != 2:
+        return None
+    source, target = edge
+    if not isinstance(source, str) or not isinstance(target, str):
+        return None
+    if source not in visible_set or target not in visible_set:
+        return None
+    if not visible_graph.has_edge(source, target):
+        return None
+    return (source, target)
+
+
 def _relationship_panel(graph, selected_edge, clean_success):
     if not selected_edge:
         st.markdown(
@@ -361,7 +375,7 @@ def _paths_panel(graph, path_source, max_hops):
             height=min(268, 38 + 35 * min(12, len(paths))),
         )
         if len(paths) > 12:
-            st.caption(f"Showing 12 of {len(paths):,} reachable assets.")
+            st.caption(f"Showing 12 of {len(paths):,} observed destinations.")
     else:
         st.markdown(
             empty_state(
@@ -414,7 +428,10 @@ def render_twin(graph, queue, clean_events):
 
     if st.session_state["twin-path-source"] not in graph:
         st.session_state["twin-path-source"] = default_source
-    if st.session_state["twin-selected"] not in graph:
+    if (
+        st.session_state["twin-selected"] is not None
+        and st.session_state["twin-selected"] not in graph
+    ):
         st.session_state["twin-selected"] = None
         st.session_state["twin-edge"] = None
 
@@ -594,21 +611,51 @@ def render_twin(graph, queue, clean_events):
     if (
         isinstance(event, dict)
         and event.get("nonce") == st.session_state["twin-nonce"]
-        and event.get("node") in visible_set
     ):
-        node = event.get("node")
-        edge = event.get("edge")
-        edge = tuple(edge) if isinstance(edge, (list, tuple)) and len(edge) == 2 else None
-        if node != st.session_state["twin-selected"] or edge != st.session_state.get("twin-edge"):
-            st.session_state["twin-selected"] = node
-            st.session_state["twin-edge"] = edge
-            st.rerun()
+        event_node = event.get("node")
+        node_is_valid = (
+            isinstance(event_node, str) and event_node in visible_set
+        )
+        event_edge = _valid_visible_edge(
+            event.get("edge"), visible_set, visible_graph
+        )
+        if node_is_valid or event_edge is not None:
+            current_node = st.session_state["twin-selected"]
+            current_edge = st.session_state.get("twin-edge")
+            if event_edge is not None:
+                # A relationship can be inspected without a selected node.
+                # When a node is selected, keep it alongside the new edge.
+                new_node = (
+                    current_node
+                    if current_node in visible_set
+                    else event_node if node_is_valid else None
+                )
+                new_edge = event_edge
+            else:
+                new_node = event_node
+                new_edge = None
+            if new_node != current_node or new_edge != current_edge:
+                st.session_state["twin-selected"] = new_node
+                st.session_state["twin-edge"] = new_edge
+                st.rerun()
 
     with details_column:
         selected = st.session_state["twin-selected"]
+        selected_edge = st.session_state.get("twin-edge")
         if selected:
             _selected_entity_panel(
                 graph, selected, clean_success, queue
+            )
+        elif selected_edge:
+            st.markdown(
+                section_header(
+                    "RELATIONSHIP INTELLIGENCE",
+                    "Relationship selected",
+                    "The selected connection is shown below, including its direction "
+                    "and observation count. Select a node to inspect that entity "
+                    "instead.",
+                ),
+                unsafe_allow_html=True,
             )
         else:
             st.markdown(
@@ -620,7 +667,7 @@ def render_twin(graph, queue, clean_events):
                 ),
                 unsafe_allow_html=True,
             )
-        _relationship_panel(graph, st.session_state.get("twin-edge"), clean_success)
+        _relationship_panel(graph, selected_edge, clean_success)
         _paths_panel(visible_graph, path_source, max_hops)
 
     st.caption(

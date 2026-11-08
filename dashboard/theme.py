@@ -5,7 +5,7 @@ import os
 import streamlit as st
 
 STYLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "styles")
-STYLE_FILES = ("theme.css", "layout.css", "components.css", "responsive.css")
+STYLE_FILES = ("theme.css", "layout.css", "components.css", "home.css", "responsive.css")
 
 
 def _read_styles():

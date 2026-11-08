@@ -1,0 +1,757 @@
+/* Immersive homepage: cinematic hero, network explorer, illustrative demo */
+
+html {
+    scroll-behavior: smooth;
+}
+
+.teqo-anchor {
+    scroll-margin-top: 5rem;
+}
+
+.teqo-landing-hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(300px, 0.98fr);
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    min-height: clamp(560px, 82vh, 820px);
+    margin-top: 0.25rem;
+    padding: clamp(4.4rem, 8vw, 6rem) clamp(1.2rem, 4vw, 3.25rem)
+        clamp(2rem, 4vw, 3.25rem);
+    overflow: hidden;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: 22px;
+    background:
+        radial-gradient(920px 540px at 74% 16%, rgba(139, 124, 246, 0.15), transparent 62%),
+        radial-gradient(720px 440px at 14% 86%, rgba(54, 185, 214, 0.11), transparent 64%),
+        linear-gradient(180deg, rgba(16, 26, 42, 0.74), rgba(8, 13, 24, 0.94));
+    box-shadow: var(--teqo-shadow);
+}
+
+.teqo-landing-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+        linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(720px 460px at 52% 42%, #000 12%, transparent 78%);
+    -webkit-mask-image: radial-gradient(720px 460px at 52% 42%, #000 12%, transparent 78%);
+}
+
+.teqo-landing-hero::after {
+    content: "";
+    position: absolute;
+    inset: -20% -12% auto auto;
+    z-index: -1;
+    width: 620px;
+    height: 620px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(54, 185, 214, 0.12), transparent 66%);
+    animation: teqo-hero-glow 16s ease-in-out infinite alternate;
+}
+
+.teqo-landing-nav {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem clamp(1rem, 2.4vw, 1.6rem);
+}
+
+.teqo-landing-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--teqo-text);
+    font-size: 0.76rem;
+    font-weight: 750;
+    letter-spacing: 0.16em;
+}
+
+.teqo-landing-brand img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 12px rgba(54, 185, 214, 0.28));
+}
+
+.teqo-landing-brand span span {
+    color: var(--teqo-accent);
+}
+
+.teqo-landing-navlinks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.1rem;
+}
+
+.teqo-landing-navlinks a {
+    color: var(--teqo-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.teqo-landing-navlinks a:hover,
+.teqo-landing-navlinks a:focus-visible {
+    color: var(--teqo-accent);
+}
+
+.teqo-landing-copy {
+    position: relative;
+    z-index: 2;
+    max-width: 640px;
+}
+
+.teqo-landing-title {
+    margin: 0.7rem 0 0.9rem;
+    color: var(--teqo-text);
+    font-size: clamp(2.6rem, 6vw, 4.5rem);
+    font-weight: 730;
+    line-height: 0.99;
+    letter-spacing: -0.058em;
+}
+
+.teqo-landing-title span {
+    color: var(--teqo-accent);
+}
+
+.teqo-landing-lead {
+    max-width: 540px;
+    margin: 0;
+    color: var(--teqo-text-2);
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    line-height: 1.55;
+}
+
+.teqo-landing-sub {
+    max-width: 520px;
+    margin: 0.8rem 0 0;
+    color: var(--teqo-muted);
+    font-size: 0.88rem;
+    line-height: 1.7;
+}
+
+.teqo-landing-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1.6rem;
+}
+
+.teqo-landing-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 46px;
+    padding: 0 1.3rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 650;
+    text-decoration: none !important;
+    transition: background-color 0.16s ease, border-color 0.16s ease,
+        color 0.16s ease, transform 0.16s ease;
+}
+
+.teqo-landing-cta.primary {
+    background: var(--teqo-accent);
+    color: #04121c;
+    box-shadow: 0 14px 32px rgba(54, 185, 214, 0.24);
+}
+
+.teqo-landing-cta.primary:hover,
+.teqo-landing-cta.primary:focus-visible {
+    background: #4fcbe6;
+    color: #04121c;
+    transform: translateY(-1px);
+}
+
+.teqo-landing-cta.secondary {
+    border: 1px solid var(--teqo-border);
+    background: rgba(16, 26, 42, 0.62);
+    color: var(--teqo-text);
+}
+
+.teqo-landing-cta.secondary:hover,
+.teqo-landing-cta.secondary:focus-visible {
+    border-color: var(--teqo-accent);
+    background: rgba(22, 35, 56, 0.82);
+    color: var(--teqo-text);
+    transform: translateY(-1px);
+}
+
+.teqo-landing-indicators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1.1rem;
+    margin-top: 1.5rem;
+    color: var(--teqo-faint);
+    font-size: 0.67rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.teqo-landing-indicators span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.teqo-landing-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teqo-accent);
+    box-shadow: 0 0 0 0 rgba(54, 185, 214, 0.45);
+    animation: teqo-ping 2.8s ease-out infinite;
+}
+
+.teqo-landing-visual {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 100%;
+    max-width: 560px;
+    min-height: 380px;
+    margin: 0 auto;
+    place-items: center;
+}
+
+.teqo-landing-visual svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.teqo-hero-edge {
+    fill: none;
+    stroke: rgba(143, 216, 232, 0.26);
+    stroke-width: 1;
+    stroke-dasharray: 3 6;
+    animation: teqo-dash 7s linear infinite;
+}
+
+.teqo-hero-edge.strong {
+    stroke: rgba(139, 124, 246, 0.46);
+    stroke-width: 1.5;
+}
+
+.teqo-hero-node {
+    cursor: pointer;
+}
+
+.teqo-hero-node .teqo-hero-halo {
+    opacity: 0.13;
+    transition: opacity 0.2s ease;
+}
+
+.teqo-hero-node .teqo-hero-ring {
+    fill: #0b1422;
+    stroke-width: 1.6;
+}
+
+.teqo-hero-node .teqo-hero-label {
+    fill: var(--teqo-text-2);
+    font-size: 10px;
+    font-family: var(--teqo-font);
+    text-anchor: middle;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: #08111f;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+
+.teqo-hero-node:hover .teqo-hero-halo,
+.teqo-hero-node:focus-visible .teqo-hero-halo {
+    opacity: 0.46;
+}
+
+.teqo-hero-node:focus-visible {
+    outline: none;
+}
+
+.teqo-hero-node:focus-visible .teqo-hero-ring {
+    stroke: var(--teqo-text);
+    stroke-width: 2.4;
+}
+
+.teqo-hero-node.unusual .teqo-hero-ring {
+    stroke: var(--teqo-warning);
+}
+
+.teqo-hero-node.unusual .teqo-hero-halo {
+    fill: var(--teqo-warning);
+}
+
+.teqo-hero-particle {
+    fill: var(--teqo-accent);
+    opacity: 0.45;
+    animation: teqo-drift 6.5s ease-in-out infinite alternate;
+}
+
+.teqo-landing-section {
+    margin-top: clamp(3rem, 7vw, 5.5rem);
+}
+
+.teqo-landing-section .teqo-section-head h2 {
+    font-size: clamp(1.5rem, 2.8vw, 2.1rem);
+}
+
+.teqo-landing-band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1.2rem;
+    margin: 0.15rem 0 0.95rem;
+}
+
+.teqo-landing-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    color: var(--teqo-muted);
+    font-size: 0.72rem;
+}
+
+.teqo-landing-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.teqo-landing-legend i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.teqo-landing-legend-note {
+    color: var(--teqo-faint);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teqo-landing-note {
+    margin: 0.65rem 0 0;
+    color: var(--teqo-faint);
+    font-size: 0.72rem;
+    line-height: 1.6;
+}
+
+/* Illustrative event exploration */
+
+.teqo-signal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+    gap: clamp(1rem, 3vw, 2rem);
+    align-items: start;
+    margin-top: 1rem;
+}
+
+.teqo-event-map {
+    padding: clamp(0.8rem, 2vw, 1.2rem);
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background:
+        radial-gradient(420px 240px at 50% 42%, rgba(139, 124, 246, 0.09), transparent 70%),
+        var(--teqo-surface);
+}
+
+.teqo-event-map svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.teqo-event-edge {
+    fill: none;
+    stroke: rgba(143, 216, 232, 0.34);
+    stroke-width: 1.6;
+    stroke-dasharray: 4 6;
+    animation: teqo-dash 6s linear infinite;
+}
+
+.teqo-event-edge.active {
+    stroke: var(--teqo-accent);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 6px rgba(54, 185, 214, 0.4));
+}
+
+.teqo-event-edge.dim {
+    opacity: 0.25;
+}
+
+.teqo-event-node circle {
+    fill: #0b1422;
+    stroke-width: 1.8;
+}
+
+.teqo-event-node .teqo-event-halo {
+    fill: currentColor;
+    opacity: 0.12;
+    stroke: none;
+}
+
+.teqo-event-node .teqo-event-core {
+    fill: currentColor;
+    stroke: none;
+}
+
+.teqo-event-node.unusual circle {
+    stroke: var(--teqo-warning);
+}
+
+.teqo-event-node.unusual .teqo-event-halo {
+    fill: var(--teqo-warning);
+}
+
+.teqo-event-node text {
+    font-family: var(--teqo-font);
+    font-size: 10px;
+    fill: var(--teqo-text-2);
+    text-anchor: middle;
+}
+
+.teqo-event-node .teqo-event-type {
+    fill: var(--teqo-faint);
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.teqo-anomaly-card {
+    padding: clamp(0.9rem, 2.2vw, 1.25rem);
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background: var(--teqo-surface);
+}
+
+.teqo-anomaly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid rgba(242, 169, 59, 0.34);
+    border-radius: 999px;
+    background: rgba(242, 169, 59, 0.1);
+    color: var(--teqo-warning);
+    font-size: 0.64rem;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.teqo-anomaly-badge i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: teqo-ping 2.4s ease-out infinite;
+}
+
+.teqo-anomaly-badge[data-tone="calm"] {
+    border-color: rgba(50, 183, 131, 0.34);
+    background: rgba(50, 183, 131, 0.1);
+    color: var(--teqo-success);
+}
+
+.teqo-anomaly-card h3 {
+    margin: 0.7rem 0 0.35rem;
+    color: var(--teqo-text);
+    font-size: 1rem;
+    letter-spacing: -0.015em;
+}
+
+.teqo-anomaly-card p {
+    margin: 0;
+    color: var(--teqo-muted);
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+.teqo-anomaly-scale {
+    display: flex;
+    gap: 4px;
+    margin: 0.85rem 0 0.6rem;
+}
+
+.teqo-anomaly-scale i {
+    flex: 1 1 0;
+    height: 5px;
+    border-radius: 99px;
+    background: rgba(148, 163, 184, 0.16);
+}
+
+.teqo-anomaly-scale i.on {
+    background: var(--teqo-warning);
+}
+
+.teqo-anomaly-scale[data-tone="calm"] i.on {
+    background: var(--teqo-success);
+}
+
+.teqo-anomaly-note {
+    margin-top: 0.55rem !important;
+    color: var(--teqo-faint) !important;
+    font-size: 0.68rem !important;
+    line-height: 1.55 !important;
+}
+
+.teqo-signal-detail {
+    margin-top: 0.8rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(54, 185, 214, 0.28);
+    border-radius: var(--teqo-radius-sm);
+    background: rgba(54, 185, 214, 0.07);
+}
+
+.teqo-signal-detail h4 {
+    margin: 0.2rem 0 0.3rem;
+    color: var(--teqo-text);
+    font-size: 0.9rem;
+}
+
+.teqo-signal-detail p {
+    margin: 0;
+    color: var(--teqo-muted);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+.teqo-signal-detail .teqo-signal-kicker {
+    color: var(--teqo-accent);
+    font-size: 0.62rem;
+    font-weight: 750;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.teqo-signal-prompt {
+    margin-top: 0.8rem;
+    color: var(--teqo-faint);
+    font-size: 0.76rem;
+    line-height: 1.6;
+}
+
+/* Discovery cards */
+
+[class*="st-key-teqo-disc-"] {
+    height: 100%;
+    padding: 12px;
+    border: 1px solid var(--teqo-border-soft);
+    border-radius: var(--teqo-radius);
+    background: linear-gradient(180deg, rgba(16, 26, 42, 0.9), rgba(11, 20, 34, 0.62));
+    transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+[class*="st-key-teqo-disc-"]:hover {
+    border-color: rgba(54, 185, 214, 0.42);
+    transform: translateY(-2px);
+}
+
+.teqo-disc-preview {
+    position: relative;
+    display: grid;
+    height: 96px;
+    margin-bottom: 0.7rem;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 9px;
+    background:
+        radial-gradient(180px 90px at 60% 20%, rgba(54, 185, 214, 0.12), transparent 70%),
+        rgba(8, 13, 24, 0.7);
+}
+
+.teqo-disc-preview[data-accent="violet"] {
+    background:
+        radial-gradient(180px 90px at 60% 20%, rgba(139, 124, 246, 0.16), transparent 70%),
+        rgba(8, 13, 24, 0.7);
+}
+
+.teqo-disc-preview[data-accent="warning"] {
+    background:
+        radial-gradient(180px 90px at 60% 20%, rgba(242, 169, 59, 0.13), transparent 70%),
+        rgba(8, 13, 24, 0.7);
+}
+
+.teqo-disc-preview svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.teqo-disc-preview img {
+    width: 52px;
+    height: auto;
+    filter: drop-shadow(0 8px 20px rgba(54, 185, 214, 0.28));
+}
+
+.teqo-disc-note {
+    margin: -0.15rem 0 0.5rem;
+    color: var(--teqo-muted);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}
+
+[class*="st-key-teqo-disc-"] [data-testid="stPageLink-NavLink"] {
+    min-height: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--teqo-text);
+    font-size: 0.82rem;
+    font-weight: 650;
+}
+
+[class*="st-key-teqo-disc-"] [data-testid="stPageLink-NavLink"]:hover {
+    background: transparent;
+    color: var(--teqo-accent);
+}
+
+.teqo-landing-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1.2rem;
+    margin-top: clamp(2.5rem, 5vw, 3.5rem);
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--teqo-border-soft);
+    color: var(--teqo-faint);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+@keyframes teqo-dash {
+    to {
+        stroke-dashoffset: -34;
+    }
+}
+
+@keyframes teqo-drift {
+    from {
+        transform: translate3d(0, 3px, 0);
+        opacity: 0.24;
+    }
+    to {
+        transform: translate3d(0, -5px, 0);
+        opacity: 0.6;
+    }
+}
+
+@keyframes teqo-ping {
+    0% {
+        box-shadow: 0 0 0 0 rgba(54, 185, 214, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 7px rgba(54, 185, 214, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(54, 185, 214, 0);
+    }
+}
+
+@keyframes teqo-hero-glow {
+    from {
+        transform: translate3d(0, 0, 0) scale(0.94);
+        opacity: 0.7;
+    }
+    to {
+        transform: translate3d(-28px, 24px, 0) scale(1.06);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 1000px) {
+    .teqo-landing-hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding-top: 4.8rem;
+    }
+
+    .teqo-landing-visual {
+        max-width: 460px;
+        min-height: 300px;
+    }
+
+    .teqo-signal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .teqo-landing-hero {
+        padding: 4.35rem 0.95rem 1.6rem;
+        border-radius: 16px;
+    }
+
+    .teqo-landing-nav {
+        padding: 0.8rem 0.9rem;
+    }
+
+    .teqo-landing-navlinks {
+        gap: 0.7rem;
+    }
+
+    .teqo-landing-navlinks a {
+        font-size: 0.67rem;
+    }
+
+    .teqo-landing-title {
+        font-size: clamp(2.15rem, 11vw, 2.9rem);
+    }
+
+    .teqo-landing-ctas {
+        gap: 0.5rem;
+    }
+
+    .teqo-landing-cta {
+        flex: 1 1 100%;
+    }
+
+    .teqo-landing-indicators {
+        gap: 0.4rem 0.7rem;
+        font-size: 0.62rem;
+    }
+
+    .teqo-landing-visual {
+        min-height: 250px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    .teqo-landing-hero::after,
+    .teqo-landing-dot,
+    .teqo-hero-edge,
+    .teqo-hero-particle,
+    .teqo-event-edge,
+    .teqo-anomaly-badge i {
+        animation: none !important;
+    }
+}
