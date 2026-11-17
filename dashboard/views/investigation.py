@@ -27,6 +27,37 @@ POSITIVE_COLOR = "#FFB454"
 NEGATIVE_COLOR = "#38BDF8"
 ZERO_COLOR = "#5B7290"
 
+# Fields an analyst may see for an event. Ground-truth labels and the
+# evaluation split are deliberately excluded: the workspace must not reveal
+# the answer during review or demonstration.
+DISPLAY_FIELDS = (
+    "pipeline_run_id",
+    "source",
+    "time",
+    "user",
+    "device",
+    "target_device",
+    "action",
+    "result",
+    "auth_type",
+    "logon_type",
+    "is_failed",
+    "is_new_target_device",
+    "rolling_count_1h",
+    "anomaly_score_first_seen_baseline",
+    "anomaly_score_iforest",
+    "anomaly_score_autoencoder",
+    "is_flagged_iforest",
+    "anomaly_percentile",
+    "factor_new_device",
+    "factor_sensitive_asset",
+    "factor_failed_login",
+    "factor_burst_activity",
+    "risk_score",
+    "risk_level",
+    "risk_reasons",
+)
+
 
 def format_event_value(value):
     """Render mixed numeric/categorical event values as display text."""
@@ -53,9 +84,10 @@ def format_background(item):
 def format_event_record(row):
     """Turn the alert row into a readable field/value table."""
     records = [{"Field": "Event ID", "Value": str(row.get("_event_id", ""))}]
-    for field, value in row.items():
-        if field == "_event_id":
+    for field in DISPLAY_FIELDS:
+        if field not in row.index:
             continue
+        value = row.get(field)
         if isinstance(value, float) and pd.isna(value):
             text = ""
         elif isinstance(value, str):
@@ -303,7 +335,7 @@ def event_label(row):
     )
 
 
-def render_investigation(queue, data, graph, cases, clean_events):
+def render_investigation(queue, data, graph, cases, clean_events, report=None):
     if queue.empty:
         st.markdown(
             empty_state(
@@ -504,11 +536,14 @@ def render_investigation(queue, data, graph, cases, clean_events):
     if st.button(button_label, key=f"shap-{event_id}"):
         try:
             X, model, scaler = load_analysis_resources(clean_events)
-            training_rows = (
-                data["evaluation_split"].eq("train")
-                if "evaluation_split" in data
-                else pd.Series(True, index=data.index)
-            )
+            cutoff = None
+            if isinstance(report, dict):
+                cutoff = report.get("split", {}).get("cutoff_elapsed_seconds")
+            if cutoff is not None and "time" in data.columns:
+                event_times = pd.to_numeric(data["time"], errors="coerce")
+                training_rows = event_times <= float(cutoff)
+            else:
+                training_rows = pd.Series(True, index=data.index)
             explanation = explain_event(
                 model,
                 scaler,

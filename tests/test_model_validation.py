@@ -24,7 +24,7 @@ from src.model import (
     train_autoencoder,
 )
 from src.digital_twin import build_graph, format_feature_name, get_attack_paths
-from src.risk_engine import compute_risk
+from src.risk_engine import compute_risk, serving_frame
 
 
 class ModelValidationTests(unittest.TestCase):
@@ -199,6 +199,22 @@ class ModelValidationTests(unittest.TestCase):
         self.assertIn("sensitive asset", scored.iloc[1]["risk_reasons"])
         self.assertGreaterEqual(scored["risk_score"].max(), 0)
         self.assertLessEqual(scored["risk_score"].max(), 100)
+
+    def test_serving_frame_removes_evaluation_labels(self):
+        events = pd.DataFrame(
+            {
+                "time": [0, 1],
+                "risk_score": [10.0, 90.0],
+                "is_malicious": [0, 1],
+                "evaluation_split": ["train", "test"],
+            }
+        )
+
+        serving = serving_frame(events)
+
+        self.assertNotIn("is_malicious", serving.columns)
+        self.assertNotIn("evaluation_split", serving.columns)
+        self.assertEqual(list(serving.columns), ["time", "risk_score"])
 
     def test_observed_graph_paths_are_bounded_and_rank_critical_assets(self):
         events = pd.DataFrame(

@@ -42,7 +42,7 @@ from src.dataset_paths import (
     MODELS_DIR,
     SCORED_FILE as OUTPUT_FILE,
 )
-from src.evaluation import evaluate_ranked_scores
+from src.evaluation import ALERT_BUDGETS, evaluate_ranked_scores
 from src.provenance import (
     PIPELINE_SCHEMA_VERSION,
     create_pipeline_run_id,
@@ -50,15 +50,14 @@ from src.provenance import (
 )
 from src.risk_engine import (
     BURST_THRESHOLD,
-    HIGH_THRESHOLD,
-    MEDIUM_THRESHOLD,
+    HIGH_CAPACITY_QUANTILE,
+    MEDIUM_CAPACITY_QUANTILE,
     RISK_FACTOR_POINTS,
     SENSITIVE_ASSETS,
 )
 
 # Evaluate only the latest chronological portion against ground truth.
 TEST_FRACTION = 0.3
-ALERT_BUDGETS = (30, 100)
 RANDOM_STATE = 42
 CONTAMINATION = 0.1
 AUTOENCODER_EPOCHS = 30
@@ -503,8 +502,9 @@ def write_evaluation_report(
             "factor_points": RISK_FACTOR_POINTS,
             "sensitive_assets": sorted(SENSITIVE_ASSETS),
             "burst_threshold": BURST_THRESHOLD,
-            "high_threshold": HIGH_THRESHOLD,
-            "medium_threshold": MEDIUM_THRESHOLD,
+            "high_capacity_quantile": HIGH_CAPACITY_QUANTILE,
+            "medium_capacity_quantile": MEDIUM_CAPACITY_QUANTILE,
+            "percentile_reference": "training period only",
         },
     }
     run_id = create_pipeline_run_id(

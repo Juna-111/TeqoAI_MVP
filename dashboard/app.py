@@ -224,7 +224,12 @@ def render_analyst_page(selected_page):
         try:
             graph = load_graph(clean_events)
             render_investigation(
-                filtered_events, risk_events, graph, case_records, clean_events
+                filtered_events,
+                risk_events,
+                graph,
+                case_records,
+                clean_events,
+                report=report,
             )
         except (KeyError, ValueError, sqlite3.Error):
             st.error(

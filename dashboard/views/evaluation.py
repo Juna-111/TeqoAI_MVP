@@ -165,6 +165,27 @@ def _budget_chart(frame, known_positives):
     )
 
 
+def _queue_tier_frame(queue):
+    rows = []
+    for tier in ("High", "Medium", "Low"):
+        metrics = (queue.get("tiers") or {}).get(tier, {})
+        if not isinstance(metrics, dict):
+            continue
+        rows.append(
+            {
+                "Tier": tier,
+                "Events": int(metrics.get("events", 0)),
+                "Share of holdout": format_metric(
+                    metrics.get("share_of_holdout"), percent=True
+                ),
+                "Known positives": int(metrics.get("known_positive_events", 0)),
+                "Precision": format_metric(metrics.get("precision"), percent=True),
+                "Recall": format_metric(metrics.get("recall"), percent=True),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def _fold_frame(folds):
     rows = []
     for fold in folds:
@@ -430,6 +451,106 @@ def render_data_quality(clean, data, report, provenance_issues):
             "for calculation; some may be malicious but unlabeled."
         )
 
+    queue = report.get("decision_queue", {})
+    if isinstance(queue, dict) and queue.get("status") == "evaluated":
+        score_ranking = queue.get("score_ranking", {})
+        budget = queue.get("queue_at_budget", {}).get("alert_budgets", {})
+        top_30 = budget.get("30", {})
+        high_tier = (queue.get("tiers") or {}).get("High", {})
+        st.markdown(
+            section_header(
+                "DEPLOYED QUEUE",
+                "What the analyst actually reviews",
+                "This evaluates the rule-adjusted score and tier order used by the "
+                "dashboard, not only the raw model rankings above.",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            metric_grid(
+                [
+                    {
+                        "label": "Queue average precision",
+                        "value": format_metric(
+                            score_ranking.get("average_precision")
+                        ),
+                        "hint": "Deployed risk score vs known labels",
+                        "tone": "info",
+                        "size": "compact",
+                    },
+                    {
+                        "label": "Top-30 precision",
+                        "value": format_metric(top_30.get("precision"), percent=True),
+                        "hint": (
+                            f"{top_30.get('known_positive_hits', 0)} known positives "
+                            "in the first 30"
+                        ),
+                        "tone": "blue",
+                        "size": "compact",
+                    },
+                    {
+                        "label": "High-tier precision",
+                        "value": format_metric(high_tier.get("precision"), percent=True),
+                        "hint": (
+                            f"{high_tier.get('known_positive_events', 0)} known positives "
+                            f"in {high_tier.get('events', 0)} events"
+                        ),
+                        "tone": "default",
+                        "size": "compact",
+                    },
+                ]
+            ),
+            unsafe_allow_html=True,
+        )
+        tier_frame = _queue_tier_frame(queue)
+        if not tier_frame.empty:
+            st.dataframe(tier_frame, width="stretch", hide_index=True)
+        calibration = queue.get("calibration") or {}
+        if calibration:
+            high_quantile = float(calibration.get("high_capacity_quantile", 0))
+            medium_quantile = float(calibration.get("medium_capacity_quantile", 0))
+            st.caption(
+                "Percentiles and tier thresholds use the "
+                f"{calibration.get('percentile_reference', 'reference period')}. "
+                f"High covers roughly the top {1 - high_quantile:.0%} of risk in "
+                f"that period ({high_quantile:.0%} quantile); Medium extends to "
+                f"the top {1 - medium_quantile:.0%} ({medium_quantile:.0%} quantile). "
+                "Tiers are relative review capacity, not probabilities."
+            )
+
+        baseline = model_metrics.get("first_seen_destination_baseline", {})
+        baseline_ap = baseline.get("average_precision")
+        queue_ap = score_ranking.get("average_precision")
+        if baseline_ap is not None and queue_ap is not None:
+            if queue_ap < float(baseline_ap):
+                st.markdown(
+                    callout(
+                        "Measured baseline comparison",
+                        f"The first-seen baseline has higher average precision "
+                        f"({format_metric(baseline_ap)}) than the deployed queue "
+                        f"({format_metric(queue_ap)}) in this run. Treat the queue as "
+                        "a measured result, not a claim of model superiority.",
+                        tone="warning",
+                    ),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption(
+                    f"Deployed queue average precision {format_metric(queue_ap)} vs "
+                    f"{format_metric(baseline_ap)} for the first-seen baseline. "
+                    "Both are measured on the same holdout."
+                )
+    else:
+        st.markdown(
+            callout(
+                "Deployed queue not evaluated",
+                "The stored report has no queue-level evaluation. Rerun the local "
+                "pipeline after risk scoring to generate it.",
+                tone="info",
+            ),
+            unsafe_allow_html=True,
+        )
+
     if known_positives < 20:
         st.markdown(
             callout(
@@ -454,9 +575,9 @@ def render_data_quality(clean, data, report, provenance_issues):
     st.markdown(
         callout(
             "Score semantics",
-            "The report evaluates raw ranking scores against known labels, not the "
-            "rule-adjusted risk score. A high score is a review priority—not a "
-            "probability of compromise.",
+            "The ranking table covers raw model scores. The deployed-queue section "
+            "covers the rule-adjusted score and tier ordering analysts actually see. "
+            "Neither is a probability of compromise; both are review priorities.",
         ),
         unsafe_allow_html=True,
     )

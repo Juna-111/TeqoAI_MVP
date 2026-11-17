@@ -73,8 +73,13 @@ def apply_filters(data, cases):
         risk_order = {"High": 0, "Medium": 1, "Low": 2}
         filtered["_status_order"] = filtered["case_status"].map(status_order)
         filtered["_risk_order"] = filtered["risk_level"].map(risk_order)
+        score_column = (
+            "risk_rank_score"
+            if "risk_rank_score" in filtered.columns
+            else "risk_score"
+        )
         filtered = filtered.sort_values(
-            ["_status_order", "_risk_order", "risk_score", "time"],
+            ["_status_order", "_risk_order", score_column, "time"],
             ascending=[True, True, False, False],
             na_position="last",
         ).drop(columns=["_status_order", "_risk_order"])

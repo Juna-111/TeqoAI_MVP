@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.evaluation import evaluate_ranked_scores
+from src.evaluation import evaluate_ranked_order, evaluate_ranked_scores
 
 
 class EvaluateRankedScoresTests(unittest.TestCase):
@@ -73,6 +73,26 @@ class EvaluateRankedScoresTests(unittest.TestCase):
             evaluate_ranked_scores([1], [np.inf])
         with self.assertRaises(ValueError):
             evaluate_ranked_scores([1], [0.1], alert_budgets=(True,))
+
+
+class EvaluateRankedOrderTests(unittest.TestCase):
+    def test_explicit_order_is_measured_without_reordering(self):
+        result = evaluate_ranked_order(
+            [1, 0, 1, 0],
+            [2, 0, 1, 3],
+            alert_budgets=(2,),
+        )
+
+        self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["alert_budgets"]["2"]["known_positive_hits"], 2)
+        self.assertAlmostEqual(result["alert_budgets"]["2"]["precision"], 1.0)
+        self.assertAlmostEqual(result["alert_budgets"]["2"]["recall"], 1.0)
+
+    def test_order_must_be_a_complete_permutation(self):
+        with self.assertRaises(ValueError):
+            evaluate_ranked_order([1, 0], [0, 0])
+        with self.assertRaises(ValueError):
+            evaluate_ranked_order([1, 0], [0, 2])
 
 
 if __name__ == "__main__":

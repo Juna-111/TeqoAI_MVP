@@ -30,7 +30,7 @@ import joblib
 import pandas as pd
 import networkx as nx
 
-from src.dataset_paths import CLEAN_FILE, MODELS_DIR, RISK_FILE
+from src.dataset_paths import CLEAN_FILE, MODELS_DIR, RISK_FILE, SCORED_FILE
 
 # Reuse the exact same feature engineering used for training, so SHAP
 # explanations are computed on identical features to the live model.
@@ -415,6 +415,10 @@ def main():
     print("[info] loading risk-scored events...")
     df_risk = pd.read_csv(RISK_FILE)
 
+    # The serving artifact intentionally excludes labels and the evaluation
+    # split. This local demo reads them from the evaluation-side scored file.
+    df_scored = pd.read_csv(SCORED_FILE) if os.path.exists(SCORED_FILE) else None
+
     print("[info] building the Cyber Digital Twin graph...")
     G = build_graph(df_clean)
     print(f"[info] graph built: {G.number_of_nodes()} assets, {G.number_of_edges()} relationships")
@@ -423,11 +427,26 @@ def main():
     model, scaler = load_model_artifacts()
     X = align_features(X, scaler.feature_names_in_)
 
-    # Pick one known-malicious event (if any) to demo attack path + explanation
-    malicious = df_risk[df_risk["is_malicious"] == 1].sort_values("risk_score", ascending=False)
+    # Pick one known-malicious event (if any) to demo attack path + explanation.
+    # Labels and split are read from the evaluation-side scored file because
+    # the analyst-facing risk artifact no longer contains them.
+    risk_sort_column = (
+        "risk_rank_score" if "risk_rank_score" in df_risk else "risk_score"
+    )
+    if (
+        df_scored is not None
+        and "is_malicious" in df_scored.columns
+        and len(df_scored) == len(df_risk)
+    ):
+        malicious = df_risk.loc[
+            df_scored.index[df_scored["is_malicious"] == 1]
+        ].sort_values(risk_sort_column, ascending=False)
+    else:
+        malicious = df_risk.iloc[0:0]
+
     if malicious.empty:
         print("[info] no malicious events in this dataset to demo — showing top risk event instead.")
-        demo_row = df_risk.sort_values("risk_score", ascending=False).iloc[0]
+        demo_row = df_risk.sort_values(risk_sort_column, ascending=False).iloc[0]
     else:
         demo_row = malicious.iloc[0]
 
@@ -443,8 +462,8 @@ def main():
               f"{' -> '.join(p['path'])}")
 
     training_rows = (
-        df_risk["evaluation_split"].eq("train")
-        if "evaluation_split" in df_risk
+        df_scored["evaluation_split"].eq("train")
+        if df_scored is not None and "evaluation_split" in df_scored.columns
         else pd.Series(True, index=df_risk.index)
     )
     explanation = explain_event(

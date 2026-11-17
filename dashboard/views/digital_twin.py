@@ -1,5 +1,6 @@
 """Cyber Digital Twin: interactive observed-authentication graph workspace."""
 
+import html
 import os
 
 import networkx as nx
@@ -555,7 +556,7 @@ def render_twin(graph, queue, clean_events):
             f'<p class="teqo-panel-note">Showing {len(visible_nodes):,} of '
             f"{len(all_nodes):,} entities · {visible_graph.number_of_edges():,} of "
             f"{graph.number_of_edges():,} relationships · {len(paths):,} bounded "
-            f"routes from {path_source if path_source in visible_graph else 'no entity'}"
+            f"routes from {html.escape(str(path_source)) if path_source in visible_graph else 'no entity'}"
             "</p>",
             unsafe_allow_html=True,
         )
