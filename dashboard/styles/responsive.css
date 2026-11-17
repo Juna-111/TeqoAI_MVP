@@ -243,3 +243,32 @@
         animation: none;
     }
 }
+
+/* Cyber Digital Twin workspace */
+
+@media (max-width: 980px) {
+    .teqo-twin-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .teqo-twin-stats {
+        width: 100%;
+    }
+}
+
+@media (max-width: 760px) {
+    .st-key-twin-workspace {
+        padding: 0.8rem 0.8rem 0.9rem;
+        border-radius: 16px;
+    }
+
+    .teqo-twin-head-copy h2 {
+        font-size: 1.05rem;
+    }
+
+    .st-key-twin-dock {
+        padding: 0.8rem 0.85rem;
+        border-radius: 14px;
+    }
+}

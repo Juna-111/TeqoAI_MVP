@@ -161,7 +161,7 @@ def render_analyst_page(selected_page):
         return
 
     case_records = {}
-    if selected_page in {"Overview", "Investigate", "Observed Paths"}:
+    if selected_page in {"Overview", "Investigate"}:
         try:
             case_records = get_cases(DATASET)
         except sqlite3.Error:
@@ -199,7 +199,7 @@ def render_analyst_page(selected_page):
             )
 
     filtered_events = risk_events
-    if selected_page in {"Overview", "Investigate", "Observed Paths"}:
+    if selected_page in {"Overview", "Investigate"}:
         with st.sidebar:
             filtered_events = apply_filters(risk_events, case_records)
             with st.expander("Privacy note"):
@@ -239,7 +239,7 @@ def render_analyst_page(selected_page):
     elif selected_page == "Observed Paths":
         try:
             graph = load_graph(clean_events)
-            render_twin(graph, filtered_events, clean_events)
+            render_twin(graph, risk_events, clean_events)
         except (KeyError, ValueError, RuntimeError):
             st.error(
                 "The observed connections could not be prepared. Refresh the demo "

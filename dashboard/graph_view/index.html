@@ -30,7 +30,7 @@
   * { box-sizing: border-box; }
   .shell {
     position: relative;
-    height: 624px;
+    height: var(--twin-height, 624px);
     border: 1px solid var(--border);
     border-radius: 14px;
     overflow: hidden;
@@ -425,6 +425,7 @@
     matches: [],
     nonce: 0,
     fitToken: null,
+    height: 624,
     mode: "analyst",
     emit: true,
     nodeDetails: {},
@@ -506,7 +507,7 @@
     if (!nodes.length) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     nodes.forEach(function (node) {
-      const position = state.positions[node.id] || [500, 312];
+      const position = state.positions[node.id] || [500, state.height / 2];
       minX = Math.min(minX, position[0]);
       maxX = Math.max(maxX, position[0]);
       minY = Math.min(minY, position[1]);
@@ -517,11 +518,17 @@
     const padding = 70;
     const k = Math.min(
       2.2,
-      Math.max(0.35, Math.min((1000 - padding * 2) / width, (624 - padding * 2) / height))
+      Math.max(
+        0.35,
+        Math.min(
+          (1000 - padding * 2) / width,
+          (state.height - padding * 2) / height
+        )
+      )
     );
     state.view.k = k;
     state.view.x = 500 - ((minX + maxX) / 2) * k;
-    state.view.y = 312 - ((minY + maxY) / 2) * k;
+    state.view.y = state.height / 2 - ((minY + maxY) / 2) * k;
     applyView();
     if (animate && svg.animate) {
       svg.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 180 });
@@ -673,11 +680,17 @@
     const height = Math.max(maxY - minY, 1);
     const k = Math.min(
       2.4,
-      Math.max(0.55, Math.min((1000 - padding * 2) / width, (624 - padding * 2) / height))
+      Math.max(
+        0.55,
+        Math.min(
+          (1000 - padding * 2) / width,
+          (state.height - padding * 2) / height
+        )
+      )
     );
     state.view.k = k;
     state.view.x = 500 - ((minX + maxX) / 2) * k;
-    state.view.y = 312 - ((minY + maxY) / 2) * k;
+    state.view.y = state.height / 2 - ((minY + maxY) / 2) * k;
     applyView();
     if (svg.animate) {
       svg.animate([{ opacity: 0.7 }, { opacity: 1 }], { duration: 180 });
@@ -689,7 +702,7 @@
     foreign.setAttribute("x", "0");
     foreign.setAttribute("y", "0");
     foreign.setAttribute("width", "1000");
-    foreign.setAttribute("height", "624");
+    foreign.setAttribute("height", String(state.height));
     const div = document.createElement("div");
     div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
     div.className = "empty";
@@ -868,7 +881,7 @@
 
     state.nodes.forEach(function (node) {
       if (!inActiveType(node.id)) return;
-      const position = state.positions[node.id] || [500, 312];
+      const position = state.positions[node.id] || [500, state.height / 2];
       const x = position[0];
       const y = position[1];
       const radius = radiusFor(node.id, degrees);
@@ -1015,10 +1028,10 @@
   });
 
   document.getElementById("zoom-in").addEventListener("click", function () {
-    zoomAt(1.28, 500, 312);
+    zoomAt(1.28, 500, state.height / 2);
   });
   document.getElementById("zoom-out").addEventListener("click", function () {
-    zoomAt(1 / 1.28, 500, 312);
+    zoomAt(1 / 1.28, 500, state.height / 2);
   });
   document.getElementById("focus").addEventListener("click", focusSelected);
   document.getElementById("fit").addEventListener("click", function () {
@@ -1098,6 +1111,9 @@
     state.pathEdges = Array.isArray(args.path_edges) ? args.path_edges : [];
     state.matches = Array.isArray(args.matches) ? args.matches : [];
     state.nonce = args.nonce || 0;
+    state.height = Math.max(420, Math.min(960, Number(args.height) || 624));
+    shell.style.height = state.height + "px";
+    svg.setAttribute("viewBox", "0 0 1000 " + state.height);
     state.mode = args.mode === "presentation" ? "presentation" : "analyst";
     state.emit = args.emit !== false;
     state.nodeDetails = args.node_details && typeof args.node_details === "object"
@@ -1121,7 +1137,7 @@
       renderGraph();
       if (fitRequested) fitView(true);
     }
-    setHeight(624);
+    setHeight(state.height);
   }
 
   window.addEventListener("message", handleRender);

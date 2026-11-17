@@ -10,7 +10,6 @@ import streamlit.components.v1 as components
 
 from components import (
     badge,
-    callout,
     empty_state,
     kv_rows,
     section_header,
@@ -23,6 +22,9 @@ GRAPH_COMPONENT_DIR = os.path.join(
 teqo_graph = components.declare_component(
     "teqo_observed_graph", path=GRAPH_COMPONENT_DIR
 )
+
+GRAPH_HEIGHT = 640
+GRAPH_PADDING = 55
 
 TYPE_LABELS = {
     "workstation": "Workstation",
@@ -59,7 +61,7 @@ def _successful(clean_events):
 
 
 @st.cache_data(show_spinner=False)
-def _layout(node_ids, edge_pairs):
+def _layout(node_ids, edge_pairs, height=GRAPH_HEIGHT):
     """Deterministic spring layout normalised into the component viewport."""
     layout_graph = nx.DiGraph()
     layout_graph.add_nodes_from(node_ids)
@@ -73,10 +75,18 @@ def _layout(node_ids, edge_pairs):
     min_y, max_y = min(ys), max(ys)
     span_x = max(max_x - min_x, 1e-6)
     span_y = max(max_y - min_y, 1e-6)
+    horizontal_span = 1000 - GRAPH_PADDING * 2
+    vertical_span = max(height - GRAPH_PADDING * 2, 120)
     return {
         node_id: [
-            round(55 + (float(point[0]) - min_x) / span_x * 890, 2),
-            round(55 + (float(point[1]) - min_y) / span_y * 515, 2),
+            round(
+                GRAPH_PADDING + (float(point[0]) - min_x) / span_x * horizontal_span,
+                2,
+            ),
+            round(
+                GRAPH_PADDING + (float(point[1]) - min_y) / span_y * vertical_span,
+                2,
+            ),
         ]
         for node_id, point in raw.items()
     }
@@ -103,6 +113,38 @@ def _fit_request():
 def _use_selected_as_start():
     if st.session_state.get("twin-selected"):
         st.session_state["twin-path-source"] = st.session_state["twin-selected"]
+
+
+def _workspace_header(
+    visible_nodes,
+    total_nodes,
+    visible_edges,
+    total_edges,
+    route_count,
+    selected,
+):
+    stats = [
+        f'<span class="teqo-twin-stat"><b>{visible_nodes:,}</b> of '
+        f"{total_nodes:,} entities</span>",
+        f'<span class="teqo-twin-stat"><b>{visible_edges:,}</b> of '
+        f"{total_edges:,} relationships</span>",
+        f'<span class="teqo-twin-stat"><b>{route_count:,}</b> bounded '
+        f"route{'' if route_count == 1 else 's'}</span>",
+    ]
+    if selected:
+        stats.append(
+            '<span class="teqo-twin-stat is-selected">Selected: '
+            f"<b>{html.escape(str(selected))}</b></span>"
+        )
+    return (
+        '<div class="teqo-twin-head">'
+        '<div class="teqo-twin-head-copy">'
+        '<div class="teqo-section-kicker">GRAPH WORKSPACE</div>'
+        "<h2>Observed authentication map</h2>"
+        "</div>"
+        f'<div class="teqo-twin-stats">{"".join(stats)}</div>'
+        "</div>"
+    )
 
 
 def _edge_context(edge_events):
@@ -134,8 +176,6 @@ def _edge_context(edge_events):
 
 def _selected_entity_panel(graph, selected, clean_success, queue):
     node = graph.nodes[selected]
-    outgoing = clean_success.loc[clean_success["device"].eq(selected)]
-    incoming = clean_success.loc[clean_success["target_device"].eq(selected)]
     involving = clean_success.loc[
         clean_success["device"].eq(selected)
         | clean_success["target_device"].eq(selected)
@@ -178,6 +218,13 @@ def _selected_entity_panel(graph, selected, clean_success, queue):
         + badge(f"{len(involving):,} observed events", "neutral"),
         unsafe_allow_html=True,
     )
+    if st.session_state.get("twin-path-source") != selected:
+        st.button(
+            "Trace paths from this entity",
+            key=f"twin-trace-{selected}",
+            on_click=_use_selected_as_start,
+            width="stretch",
+        )
     st.markdown(
         kv_rows(
             [
@@ -211,21 +258,23 @@ def _selected_entity_panel(graph, selected, clean_success, queue):
     if len(node_risk):
         max_score = pd.to_numeric(node_risk["risk_score"], errors="coerce").max()
         st.markdown(
-            '<p class="teqo-panel-note">Risk-scored events in the current filtered '
-            f"queue: {', '.join(risk_parts)}. Highest risk score: "
+            '<p class="teqo-panel-note">Risk-scored events in the loaded sample: '
+            f"{', '.join(risk_parts)}. Highest risk score: "
             f"{max_score:.0f}.</p>",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            '<p class="teqo-panel-note">No risk-scored events in the current filtered '
-            "queue reference this entity. Risk data may be filtered out or unavailable."
+            '<p class="teqo-panel-note">No risk-scored events in the loaded sample '
+            "reference this entity. Risk data may be filtered out or unavailable."
             "</p>",
             unsafe_allow_html=True,
         )
 
+
+def _entity_relationships(graph, selected):
     relationship_rows = []
-    for source, target in outgoing_edges:
+    for source, target in graph.out_edges(selected):
         weight = graph[source][target].get("weight", 1)
         relationship_rows.append(
             {
@@ -235,7 +284,7 @@ def _selected_entity_panel(graph, selected, clean_success, queue):
                 "Successes": int(weight),
             }
         )
-    for source, target in incoming_edges:
+    for source, target in graph.in_edges(selected):
         weight = graph[source][target].get("weight", 1)
         relationship_rows.append(
             {
@@ -250,54 +299,71 @@ def _selected_entity_panel(graph, selected, clean_success, queue):
     )
     st.markdown("**Observed relationships**")
     if relationship_rows:
-        st.dataframe(
-            pd.DataFrame(relationship_rows).head(12),
-            width="stretch",
-            hide_index=True,
-            height=min(240, 38 + 35 * min(12, len(relationship_rows))),
+        relationship_markup = "".join(
+            '<div class="teqo-path-row">'
+            f"<strong>{html.escape(str(row['Source']))} → "
+            f"{html.escape(str(row['Destination']))}</strong>"
+            f"<span>{row['Direction']} · {row['Successes']:,} successful "
+            f"observation{'' if row['Successes'] == 1 else 's'}</span>"
+            "</div>"
+            for row in relationship_rows[:8]
         )
-        if len(relationship_rows) > 12:
+        st.markdown(
+            f'<div class="teqo-path-list">{relationship_markup}</div>',
+            unsafe_allow_html=True,
+        )
+        if len(relationship_rows) > 8:
             st.caption(
-                f"Showing the 12 strongest of {len(relationship_rows):,} observed "
+                f"Showing the 8 strongest of {len(relationship_rows):,} observed "
                 "relationships. Select a line in the graph to inspect one."
             )
     else:
         st.caption("No observed relationships touch this entity.")
 
+
+def _entity_activity(selected, clean_success):
+    involving = clean_success.loc[
+        clean_success["device"].eq(selected)
+        | clean_success["target_device"].eq(selected)
+    ]
     recent = involving.copy()
     if "time" in recent:
         recent = recent.sort_values("time", ascending=False)
-    if not recent.empty:
-        st.markdown("**Recent related activity**")
-        if "device" in recent and "target_device" in recent:
-            recent["peer"] = recent.apply(
-                lambda event: (
-                    event["target_device"]
-                    if str(event["device"]) == str(selected)
-                    else event["device"]
-                ),
-                axis=1,
-            )
-        display_columns = []
-        for column, label in (
-            ("time", "Elapsed seconds"),
-            ("user", "Account"),
-            ("peer", "Counterpart"),
-            ("action", "Method"),
-            ("result", "Outcome"),
-        ):
-            if column in recent:
-                display_columns.append((column, label))
-        st.dataframe(
-            recent[[column for column, _ in display_columns]]
-            .rename(columns=dict(display_columns))
-            .head(6),
-            width="stretch",
-            hide_index=True,
-            height=min(240, 38 + 35 * 6),
-        )
-    else:
+    st.markdown("**Recent related activity**")
+    if recent.empty:
         st.caption("No related authenticated activity was found for this entity.")
+        return
+    if "device" in recent and "target_device" in recent:
+        recent["peer"] = recent.apply(
+            lambda event: (
+                event["target_device"]
+                if str(event["device"]) == str(selected)
+                else event["device"]
+            ),
+            axis=1,
+        )
+    recent_markup = []
+    for _, event in recent.head(6).iterrows():
+        details = []
+        if "time" in event and pd.notna(event["time"]):
+            details.append(f"t={int(event['time']):,}")
+        if "user" in event:
+            details.append(str(event["user"]))
+        if "action" in event:
+            details.append(str(event["action"]))
+        if "result" in event:
+            details.append(str(event["result"]))
+        peer = event["peer"] if "peer" in event else "related event"
+        recent_markup.append(
+            '<div class="teqo-path-row">'
+            f"<strong>{html.escape(str(peer))}</strong>"
+            f"<span>{html.escape(' · '.join(details))}</span>"
+            "</div>"
+        )
+    st.markdown(
+        f'<div class="teqo-path-list">{"".join(recent_markup)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _valid_visible_edge(edge, visible_set, visible_graph):
@@ -353,30 +419,24 @@ def _paths_panel(graph, path_source, max_hops):
         st.caption("Select a starting entity that exists in the observed graph.")
         return []
     paths = get_attack_paths(graph, path_source, max_hops=max_hops)
-    st.markdown("**Onward observed paths**")
-    st.caption(
-        f"Shortest recorded routes from {path_source}, bounded to {max_hops} hop"
-        f"{'' if max_hops == 1 else 's'}. High-criticality destinations first."
-    )
     if paths:
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Destination": path["target"],
-                        "Type": _type_label(path["target_type"]),
-                        "Hops": path["hops"],
-                        "Observed route": " → ".join(path["path"]),
-                    }
-                    for path in paths[:12]
-                ]
-            ),
-            width="stretch",
-            hide_index=True,
-            height=min(268, 38 + 35 * min(12, len(paths))),
+        path_rows = "".join(
+            '<div class="teqo-path-row">'
+            f"<strong>{html.escape(str(path['target']))}</strong>"
+            "<span>"
+            f"{html.escape(_type_label(path['target_type']))} · "
+            f"{path['hops']} hop{'' if path['hops'] == 1 else 's'}"
+            "</span>"
+            f"<code>{html.escape(' → '.join(path['path']))}</code>"
+            "</div>"
+            for path in paths[:8]
         )
-        if len(paths) > 12:
-            st.caption(f"Showing 12 of {len(paths):,} observed destinations.")
+        st.markdown(
+            f'<div class="teqo-path-list">{path_rows}</div>',
+            unsafe_allow_html=True,
+        )
+        if len(paths) > 8:
+            st.caption(f"Showing 8 of {len(paths):,} observed destinations.")
     else:
         st.markdown(
             empty_state(
@@ -436,87 +496,6 @@ def render_twin(graph, queue, clean_events):
         st.session_state["twin-selected"] = None
         st.session_state["twin-edge"] = None
 
-    st.markdown(
-        callout(
-            "What this view shows",
-            "Directed links are built only from successful authentication observations "
-            "in the loaded sample. An observed relationship is not proof of general "
-            "network reachability, authorization, or a confirmed attack path. Failed "
-            "attempts never create a link.",
-        ),
-        unsafe_allow_html=True,
-    )
-
-    controls_column, graph_column, details_column = st.columns(
-        [1.02, 2.25, 1.28], gap="medium", vertical_alignment="top"
-    )
-
-    with controls_column:
-        st.markdown(
-            section_header(
-                "EXPLORE",
-                "Graph controls",
-                "Search, filter, and choose where path exploration starts.",
-            ),
-            unsafe_allow_html=True,
-        )
-        st.text_input(
-            "Search entities",
-            key="twin-search",
-            placeholder="e.g. C42 or SRV",
-            help="Matching entities are highlighted; the graph is not reduced.",
-        )
-        st.multiselect(
-            "Entity types",
-            options=all_types,
-            key="twin-types",
-            format_func=_type_label,
-            help="Filters operate on the observed graph. Clearing every type hides all entities.",
-        )
-        st.selectbox(
-            "Starting entity",
-            options=all_nodes,
-            key="twin-path-source",
-            help="Bounded observed paths are calculated from this entity.",
-        )
-        st.slider(
-            "Maximum path length",
-            min_value=1,
-            max_value=6,
-            key="twin-hops",
-            help="Hops are counted along observed authentication relationships.",
-        )
-        st.button(
-            "Highlight paths from selected entity",
-            key="twin-use-selected",
-            on_click=_use_selected_as_start,
-            width="stretch",
-            disabled=not st.session_state["twin-selected"],
-        )
-        st.button(
-            "Reset selection",
-            key="twin-reset-selection",
-            on_click=_reset_selection,
-            width="stretch",
-        )
-        st.button(
-            "Clear filters",
-            key="twin-clear",
-            on_click=_clear_filters,
-            args=(all_types, default_source),
-            width="stretch",
-        )
-        st.button(
-            "Fit graph to view",
-            key="twin-fit-button",
-            on_click=_fit_request,
-            width="stretch",
-        )
-        st.caption(
-            "Click a node to inspect it, or a relationship line to inspect that "
-            "connection. Drag to pan and scroll to zoom."
-        )
-
     selected_types = st.session_state["twin-types"]
     visible_nodes = [
         node
@@ -551,125 +530,271 @@ def render_twin(graph, queue, clean_events):
         highlighted_nodes.update(path["path"])
         highlighted_edges.update(zip(path["path"][:-1], path["path"][1:]))
 
-    with graph_column:
+    st.session_state.setdefault("twin-focus", False)
+    focus_mode = bool(st.session_state.get("twin-focus"))
+
+    with st.container(key="twin-workspace"):
         st.markdown(
-            f'<p class="teqo-panel-note">Showing {len(visible_nodes):,} of '
-            f"{len(all_nodes):,} entities · {visible_graph.number_of_edges():,} of "
-            f"{graph.number_of_edges():,} relationships · {len(paths):,} bounded "
-            f"routes from {html.escape(str(path_source)) if path_source in visible_graph else 'no entity'}"
-            "</p>",
+            _workspace_header(
+                len(visible_nodes),
+                len(all_nodes),
+                visible_graph.number_of_edges(),
+                graph.number_of_edges(),
+                len(paths),
+                selected,
+            ),
             unsafe_allow_html=True,
         )
-        if not visible_nodes:
-            st.markdown(
-                empty_state(
-                    "No entities match the current filters",
-                    "Select at least one entity type or clear the filters to restore "
-                    "the observed graph.",
-                ),
-                unsafe_allow_html=True,
-            )
-            event = None
-        else:
-            node_ids = tuple(visible_nodes)
-            edge_pairs = tuple(
-                sorted((str(source), str(target)) for source, target in visible_graph.edges())
-            )
-            positions = _layout(node_ids, edge_pairs)
-            args = {
-                "nodes": [
-                    {
-                        "id": node,
-                        "type": node_types[node],
-                        "criticality": graph.nodes[node].get("criticality"),
-                    }
-                    for node in visible_nodes
-                ],
-                "edges": [
-                    {
-                        "source": source,
-                        "target": target,
-                        "weight": int(visible_graph[source][target].get("weight", 1)),
-                    }
-                    for source, target in visible_graph.edges()
-                ],
-                "positions": positions,
-                "selected": selected,
-                "selected_edge": list(selected_edge) if selected_edge else None,
-                "path_nodes": sorted(highlighted_nodes, key=str),
-                "path_edges": [list(edge) for edge in sorted(highlighted_edges)],
-                "matches": matches,
-                "nonce": st.session_state["twin-nonce"],
-                "fit_token": st.session_state["twin-fit"],
-            }
-            event = teqo_graph(args=args, key="twin-graph", default=None)
-        st.caption(
-            "Highlighted routes follow observed successful authentications, ranked by "
-            "destination criticality. They are investigation context, not confirmed "
-            "attack paths."
-        )
 
-    if (
-        isinstance(event, dict)
-        and event.get("nonce") == st.session_state["twin-nonce"]
-    ):
-        event_node = event.get("node")
-        node_is_valid = (
-            isinstance(event_node, str) and event_node in visible_set
+        search_column, filters_column, actions_column = st.columns(
+            [2.5, 1.0, 2.55], gap="small", vertical_alignment="bottom"
         )
-        event_edge = _valid_visible_edge(
-            event.get("edge"), visible_set, visible_graph
-        )
-        if node_is_valid or event_edge is not None:
-            current_node = st.session_state["twin-selected"]
-            current_edge = st.session_state.get("twin-edge")
-            if event_edge is not None:
-                # A relationship can be inspected without a selected node.
-                # When a node is selected, keep it alongside the new edge.
-                new_node = (
-                    current_node
-                    if current_node in visible_set
-                    else event_node if node_is_valid else None
+        with search_column:
+            st.text_input(
+                "Search entities",
+                key="twin-search",
+                placeholder="Account, workstation, server, or service",
+                help="Matching entities are highlighted; the graph is not reduced.",
+            )
+        with filters_column:
+            with st.popover("Filters & paths", width="stretch"):
+                st.markdown("**Visible entities**")
+                st.multiselect(
+                    "Entity types",
+                    options=all_types,
+                    key="twin-types",
+                    format_func=_type_label,
+                    help=(
+                        "Filters operate on the observed graph. Clearing every type "
+                        "hides all entities."
+                    ),
                 )
-                new_edge = event_edge
-            else:
-                new_node = event_node
-                new_edge = None
-            if new_node != current_node or new_edge != current_edge:
-                st.session_state["twin-selected"] = new_node
-                st.session_state["twin-edge"] = new_edge
-                st.rerun()
+                st.markdown("**Path exploration**")
+                st.selectbox(
+                    "Starting entity",
+                    options=all_nodes,
+                    key="twin-path-source",
+                    help="Bounded observed paths are calculated from this entity.",
+                )
+                st.slider(
+                    "Maximum path length",
+                    min_value=1,
+                    max_value=6,
+                    key="twin-hops",
+                    help="Hops are counted along observed authentication relationships.",
+                )
+                st.button(
+                    "Use selected entity as start",
+                    key="twin-use-selected",
+                    on_click=_use_selected_as_start,
+                    width="stretch",
+                    disabled=not selected,
+                )
+                st.button(
+                    "Clear filters",
+                    key="twin-clear",
+                    on_click=_clear_filters,
+                    args=(all_types, default_source),
+                    width="stretch",
+                )
+        with actions_column:
+            fit_column, reset_column, focus_column = st.columns(
+                [1, 1, 1.35], gap="small", vertical_alignment="bottom"
+            )
+            with fit_column:
+                st.button(
+                    "Fit graph",
+                    key="twin-fit-button",
+                    on_click=_fit_request,
+                    width="stretch",
+                    help="Re-center the whole observed graph in the canvas.",
+                )
+            with reset_column:
+                st.button(
+                    "Reset",
+                    key="twin-reset-selection",
+                    on_click=_reset_selection,
+                    width="stretch",
+                    disabled=not selected and not selected_edge,
+                    help="Clear the current node or relationship selection.",
+                )
+            with focus_column:
+                st.toggle(
+                    "Focus graph",
+                    key="twin-focus",
+                    help=(
+                        "Hide the intelligence dock so the graph uses the full "
+                        "workspace width."
+                    ),
+                )
 
-    with details_column:
-        selected = st.session_state["twin-selected"]
-        selected_edge = st.session_state.get("twin-edge")
-        if selected:
-            _selected_entity_panel(
-                graph, selected, clean_success, queue
-            )
-        elif selected_edge:
-            st.markdown(
-                section_header(
-                    "RELATIONSHIP INTELLIGENCE",
-                    "Relationship selected",
-                    "The selected connection is shown below, including its direction "
-                    "and observation count. Select a node to inspect that entity "
-                    "instead.",
-                ),
-                unsafe_allow_html=True,
-            )
+        if focus_mode:
+            graph_column = st.container()
+            details_column = None
         else:
+            graph_column, details_column = st.columns(
+                [3.2, 1.25], gap="medium", vertical_alignment="top"
+            )
+
+        with graph_column:
+            source_text = (
+                html.escape(str(path_source))
+                if path_source in visible_graph
+                else "no entity"
+            )
             st.markdown(
-                section_header(
-                    "ENTITY INTELLIGENCE",
-                    "No entity selected",
-                    "Select any node in the graph to inspect its observed relationships "
-                    "and related authentication activity.",
-                ),
+                f'<p class="teqo-panel-note">Path exploration starts at '
+                f"<strong>{source_text}</strong> · {len(paths):,} bounded "
+                f"route{'' if len(paths) == 1 else 's'} · drag to pan, scroll to "
+                "zoom</p>",
                 unsafe_allow_html=True,
             )
-        _relationship_panel(graph, selected_edge, clean_success)
-        _paths_panel(visible_graph, path_source, max_hops)
+            if not visible_nodes:
+                st.markdown(
+                    empty_state(
+                        "No entities match the current filters",
+                        "Select at least one entity type or clear the filters to "
+                        "restore the observed graph.",
+                    ),
+                    unsafe_allow_html=True,
+                )
+                event = None
+            else:
+                node_ids = tuple(visible_nodes)
+                edge_pairs = tuple(
+                    sorted(
+                        (str(source), str(target))
+                        for source, target in visible_graph.edges()
+                    )
+                )
+                positions = _layout(node_ids, edge_pairs, GRAPH_HEIGHT)
+                args = {
+                    "nodes": [
+                        {
+                            "id": node,
+                            "type": node_types[node],
+                            "criticality": graph.nodes[node].get("criticality"),
+                        }
+                        for node in visible_nodes
+                    ],
+                    "edges": [
+                        {
+                            "source": source,
+                            "target": target,
+                            "weight": int(
+                                visible_graph[source][target].get("weight", 1)
+                            ),
+                        }
+                        for source, target in visible_graph.edges()
+                    ],
+                    "positions": positions,
+                    "selected": selected,
+                    "selected_edge": list(selected_edge) if selected_edge else None,
+                    "path_nodes": sorted(highlighted_nodes, key=str),
+                    "path_edges": [list(edge) for edge in sorted(highlighted_edges)],
+                    "matches": matches,
+                    "nonce": st.session_state["twin-nonce"],
+                    "fit_token": st.session_state["twin-fit"],
+                    "height": GRAPH_HEIGHT,
+                }
+                event = teqo_graph(args=args, key="twin-graph", default=None)
+            st.caption(
+                "Built only from successful authentication observations; a link is not "
+                "proof of reachability, authorization, or a confirmed attack path. "
+                "Highlighted routes follow observed successes and are investigation "
+                "context, not confirmed attack paths."
+            )
+            if focus_mode:
+                st.caption(
+                    "Focus mode hides the intelligence dock. Turn off Focus graph "
+                    "to inspect the selected entity, relationship, and routes."
+                )
+
+        if (
+            isinstance(event, dict)
+            and event.get("nonce") == st.session_state["twin-nonce"]
+        ):
+            event_node = event.get("node")
+            node_is_valid = (
+                isinstance(event_node, str) and event_node in visible_set
+            )
+            event_edge = _valid_visible_edge(
+                event.get("edge"), visible_set, visible_graph
+            )
+            if node_is_valid or event_edge is not None:
+                current_node = st.session_state["twin-selected"]
+                current_edge = st.session_state.get("twin-edge")
+                if event_edge is not None:
+                    # A relationship can be inspected without a selected node.
+                    # When a node is selected, keep it alongside the new edge.
+                    new_node = (
+                        current_node
+                        if current_node in visible_set
+                        else event_node if node_is_valid else None
+                    )
+                    new_edge = event_edge
+                else:
+                    new_node = event_node
+                    new_edge = None
+                if new_node != current_node or new_edge != current_edge:
+                    st.session_state["twin-selected"] = new_node
+                    st.session_state["twin-edge"] = new_edge
+                    st.rerun()
+
+        if details_column is not None:
+            with details_column:
+                with st.container(key="twin-dock"):
+                    selected = st.session_state["twin-selected"]
+                    selected_edge = st.session_state.get("twin-edge")
+                    if selected:
+                        _selected_entity_panel(
+                            graph, selected, clean_success, queue
+                        )
+                    elif selected_edge:
+                        st.markdown(
+                            section_header(
+                                "RELATIONSHIP INTELLIGENCE",
+                                "Relationship selected",
+                                "The selected connection is shown below, including "
+                                "its direction and observation count. Select a node "
+                                "to inspect that entity instead.",
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            section_header(
+                                "INTELLIGENCE DOCK",
+                                "No entity selected",
+                                "Select any node in the graph to inspect its observed "
+                                "relationships and related authentication activity.",
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    _relationship_panel(graph, selected_edge, clean_success)
+
+        if selected and not focus_mode:
+            with st.container(key="twin-evidence"):
+                relationship_column, activity_column = st.columns(
+                    [1, 1], gap="medium", vertical_alignment="top"
+                )
+                with relationship_column:
+                    _entity_relationships(visible_graph, selected)
+                with activity_column:
+                    _entity_activity(selected, clean_success)
+
+        st.markdown(
+            section_header(
+                "OBSERVED ROUTES",
+                "Onward observed paths",
+                f"Shortest recorded routes from {path_source}, bounded to "
+                f"{max_hops} hop{'' if max_hops == 1 else 's'}. "
+                "High-criticality destinations first.",
+            ),
+            unsafe_allow_html=True,
+        )
+        with st.container(key="twin-routes"):
+            _paths_panel(visible_graph, path_source, max_hops)
 
     st.caption(
         "Repeated successful observations increase relationship weight. Entity type, "
